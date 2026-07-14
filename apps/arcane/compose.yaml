@@ -9,7 +9,7 @@ services:
         protocol: tcp
         mode: ingress
     environment:
-      APP_URL: "https://CHANGE_ME:3552"
+      APP_URL: "http://10.0.0.204:3552"
       PUID: "1000"
       PGID: "1000"
       LOG_LEVEL: "info"
