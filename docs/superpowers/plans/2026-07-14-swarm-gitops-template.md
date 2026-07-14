@@ -1,6 +1,6 @@
 # Swarm GitOps Template Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Reshape this repo into the approved Swarm GitOps template: bootstrap doco-cd, SOPS+age secrets → Docker secrets, Arcane as a normal git-managed app, and docs/runbooks for day-2 ops.
 
@@ -42,7 +42,7 @@
 - Modify: `.gitignore`
 - Delete (later task; do not delete yet): legacy paths still present until Task 6–7
 
-- [ ] **Step 1: Write the validator (failing until layout exists)**
+- [x] **Step 1: Write the validator (failing until layout exists)**
 
 Create `scripts/validate-layout.sh`:
 
@@ -94,7 +94,7 @@ fi
 echo "All layout checks passed."
 ```
 
-- [ ] **Step 2: Make executable and run (expect FAIL)**
+- [x] **Step 2: Make executable and run (expect FAIL)**
 
 ```bash
 chmod +x scripts/validate-layout.sh
@@ -103,7 +103,7 @@ chmod +x scripts/validate-layout.sh
 
 Expected: `FAIL: missing required path: README.md` (or first missing path).
 
-- [ ] **Step 3: Extend `.gitignore`**
+- [x] **Step 3: Extend `.gitignore`**
 
 Ensure `.gitignore` contains at least:
 
@@ -120,7 +120,7 @@ age-key.txt
 **/*.dec.env
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add scripts/validate-layout.sh .gitignore
@@ -141,7 +141,7 @@ EOF
 - Create: `age.pubkey`
 - Delete: `REAMDE.MD` (typo filename)
 
-- [ ] **Step 1: Add placeholder `age.pubkey`**
+- [x] **Step 1: Add placeholder `age.pubkey`**
 
 ```text
 # REPLACE during bootstrap with: age-keygen -y sops_age_key.txt
@@ -149,7 +149,7 @@ EOF
 age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-- [ ] **Step 2: Add `.sops.yaml`**
+- [x] **Step 2: Add `.sops.yaml`**
 
 ```yaml
 creation_rules:
@@ -161,7 +161,7 @@ creation_rules:
 
 Note: after real bootstrap, both `age.pubkey` and `.sops.yaml` must use the same real public key. Until then placeholders are intentional; document that encryption will fail until replaced.
 
-- [ ] **Step 3: Write `README.md`**
+- [x] **Step 3: Write `README.md`**
 
 ```markdown
 # Swarm GitOps Template
@@ -190,13 +190,13 @@ Git is the desired-state source of truth. [doco-cd](https://doco.cd/) polls this
 ```
 ```
 
-- [ ] **Step 4: Remove typo README**
+- [x] **Step 4: Remove typo README**
 
 ```bash
 git rm -f REAMDE.MD
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md .sops.yaml age.pubkey
@@ -215,7 +215,7 @@ EOF
 - Create: `docs/security-policy.md`
 - Create: `docs/day-2-apps.md`
 
-- [ ] **Step 1: Write `docs/security-policy.md`**
+- [x] **Step 1: Write `docs/security-policy.md`**
 
 Content must include (full file):
 
@@ -250,7 +250,7 @@ After that, app secrets are managed from encrypted files in git via doco-cd.
 - Long-term reliance on plaintext bind-mounted secret files when Docker secrets can be used
 ```
 
-- [ ] **Step 2: Write `docs/day-2-apps.md`**
+- [x] **Step 2: Write `docs/day-2-apps.md`**
 
 ```markdown
 # Day-2: apps
@@ -276,7 +276,7 @@ Edit compose → commit → push. doco-cd reconciles the stack.
 Use Arcane and `docker` CLI. Durable fixes still go through git.
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/security-policy.md docs/day-2-apps.md
@@ -297,7 +297,7 @@ EOF
 - Create: `bootstrap/doco-cd/poll-config.yaml`
 - Create: `bootstrap/doco-cd/secrets/README.md`
 
-- [ ] **Step 1: Write `bootstrap/doco-cd/poll-config.yaml`**
+- [x] **Step 1: Write `bootstrap/doco-cd/poll-config.yaml`**
 
 ```yaml
 # Replace url with this clone's Git remote. reference must match the branch you deploy from.
@@ -306,7 +306,7 @@ EOF
   interval: 60s
 ```
 
-- [ ] **Step 2: Write `bootstrap/doco-cd/compose.yaml`**
+- [x] **Step 2: Write `bootstrap/doco-cd/compose.yaml`**
 
 Use Swarm-oriented compose. Age key and git token are **external** Docker secrets for first deploy (and steady state for decrypt/auth). Poll config is a repo file bind/config — for Swarm, prefer a config from file content committed in-repo so self-update works:
 
@@ -373,7 +373,7 @@ configs:
 
 If Swarm `configs.file` relative paths prove awkward on first `docker stack deploy`, the bootstrap README must document copying/using `--compose-file` from the checked-out path on the manager (see Step 4).
 
-- [ ] **Step 3: Write `bootstrap/doco-cd/secrets/README.md`**
+- [x] **Step 3: Write `bootstrap/doco-cd/secrets/README.md`**
 
 ```markdown
 # bootstrap/doco-cd secrets
@@ -392,7 +392,7 @@ These stay external so the first deploy and SOPS decrypt never require ciphertex
 Additional encrypted files for doco-cd may be added here once SOPS decrypt is proven; prefer keeping chicken-and-egg credentials external.
 ```
 
-- [ ] **Step 4: Write `bootstrap/README.md`** (full checklist)
+- [x] **Step 4: Write `bootstrap/README.md`** (full checklist)
 
 Must cover:
 
@@ -425,7 +425,7 @@ docker secret create \
 
 (Use `printf`/`cat` redirection as appropriate; never echo secrets into shell history carelessly — prefer `docker secret create ... < file` then shred local file after offline backup.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add bootstrap/
@@ -443,7 +443,7 @@ EOF
 **Files:**
 - Create: `.doco-cd.yaml`
 
-- [ ] **Step 1: Create `.doco-cd.yaml`**
+- [x] **Step 1: Create `.doco-cd.yaml`**
 
 ```yaml
 # Deployment 1: keep doco-cd itself in sync from bootstrap/
@@ -466,7 +466,7 @@ EOF
 
 Note: If doco-cd self-update of a stack that mounts the Docker socket is considered too risky during implementation, set a short comment in `.doco-cd.yaml` and temporarily remove the first deployment — but the **default plan is to enable self-update** per the vision, with recovery documented in `bootstrap/README.md`.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add .doco-cd.yaml
@@ -489,7 +489,7 @@ EOF
 
 **Important:** Existing `apps/arcane.yaml` contains **plaintext secrets**. Remove it from git history awareness going forward; after delete, **rotate** any credentials that were ever committed (JWT, encryption key, DB password) as a mandatory ops note in the secrets README.
 
-- [ ] **Step 1: Write `apps/arcane/compose.yaml`**
+- [x] **Step 1: Write `apps/arcane/compose.yaml`**
 
 Base on current `apps/arcane-swarm.yaml`, but change secrets from `external: true` to **file-backed** so doco-cd can decrypt SOPS and create/rotate Swarm secrets:
 
@@ -572,7 +572,7 @@ secrets:
 
 doco-cd will decrypt `*.enc.txt` in place before creating Swarm secrets (content must include SOPS markers). Filenames must keep a correct extension for SOPS format (`txt` = binary/text mode is fine for raw secret strings).
 
-- [ ] **Step 2: Write `apps/arcane/secrets/README.md`**
+- [x] **Step 2: Write `apps/arcane/secrets/README.md`**
 
 Document generating values, encrypting after real `age.pubkey` is set:
 
@@ -591,7 +591,7 @@ shred -u /tmp/arcane_*.plain
 
 State clearly: **rotate any secrets that appeared in the old `apps/arcane.yaml`.**
 
-- [ ] **Step 3: Add `.gitkeep` under secrets until encrypted files are added**
+- [x] **Step 3: Add `.gitkeep` under secrets until encrypted files are added**
 
 ```bash
 mkdir -p apps/arcane/secrets
@@ -600,13 +600,13 @@ touch apps/arcane/secrets/.gitkeep
 
 When encrypted files are created, remove `.gitkeep` if desired.
 
-- [ ] **Step 4: Delete legacy app files**
+- [x] **Step 4: Delete legacy app files**
 
 ```bash
 git rm -f apps/arcane.yaml apps/arcane-swarm.yaml
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/arcane/
@@ -629,7 +629,7 @@ EOF
 - Remove empty `secrets/` dir if unused
 - Modify: `scripts/validate-layout.sh` if any path tweaks needed
 
-- [ ] **Step 1: Remove legacy secrets folder content**
+- [x] **Step 1: Remove legacy secrets folder content**
 
 ```bash
 git rm -f secrets/bootstrap.md
@@ -638,7 +638,7 @@ git rm -f secrets/bootstrap.md
 
 If `secrets/commands.txt` is untracked scratch, ensure `.gitignore` has `secrets/commands.txt` or delete locally after migrating useful bits into `bootstrap/README.md`.
 
-- [ ] **Step 2: Run validator**
+- [x] **Step 2: Run validator**
 
 ```bash
 ./scripts/validate-layout.sh
@@ -665,9 +665,9 @@ else
 fi
 ```
 
-- [ ] **Step 3: Re-run validator — expect PASS**
+- [x] **Step 3: Re-run validator — expect PASS**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A
