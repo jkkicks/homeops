@@ -2,10 +2,8 @@ version: "3.9"
 
 services:
   traefik:
-    # v3.6.1+ negotiates Docker API correctly with Engine 29+ (min API 1.44)
     image: traefik:v3.6.6
     command:
-      # Traefik v3: Swarm is its own provider (docker.swarmMode was removed)
       - --providers.swarm=true
       - --providers.swarm.endpoint=unix:///var/run/docker.sock
       - --providers.swarm.exposedByDefault=false
@@ -33,7 +31,7 @@ services:
         constraints:
           - node.role == manager
       restart_policy:
-        condition: on-failure
+        condition: any
       labels:
         cloud.subtract.application: "traefik"
         cloud.subtract.environment: "production"
