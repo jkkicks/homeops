@@ -1,0 +1,12 @@
+.superpowers/
+.worktrees/
+
+# Never commit decrypt material or local plaintext
+sops_age_key.txt
+age-key.txt
+*.agekey
+**/secrets/*.plain.*
+**/secrets/*.dec.*
+**/*.dec.yaml
+**/*.dec.env
+secrets/commands.txt
