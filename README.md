@@ -13,7 +13,7 @@ Git is the desired-state source of truth. [doco-cd](https://doco.cd/) polls this
 ## Layout
 
 - `bootstrap/` — human one-time steps + doco-cd
-- `apps/` — Arcane and all other stacks
+- `apps/` — Traefik (ingress), Arcane, and all other stacks
 - `docs/` — security policy and day-2 guides
 - Spec: `docs/superpowers/specs/2026-07-14-swarm-gitops-template-design.md`
 

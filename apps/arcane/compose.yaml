@@ -3,13 +3,8 @@ version: "3.9"
 services:
   arcane:
     image: ghcr.io/getarcaneapp/manager:latest
-    ports:
-      - target: 3552
-        published: 3552
-        protocol: tcp
-        mode: ingress
     environment:
-      APP_URL: "http://10.0.0.204:3552"
+      APP_URL: "http://10.0.0.204"
       PUID: "1000"
       PGID: "1000"
       LOG_LEVEL: "info"
@@ -41,6 +36,7 @@ services:
       - /opt/stacks:/opt/stacks
     networks:
       - arcane
+      - traefik-public
     deploy:
       replicas: 1
       placement:
@@ -53,6 +49,11 @@ services:
         cloud.subtract.environment: "production"
         cloud.subtract.managed-by: "doco-cd"
         cloud.subtract.provisioning-source: "git"
+        traefik.enable: "true"
+        traefik.docker.network: "traefik-public"
+        traefik.http.routers.arcane.rule: "Host(`10.0.0.204`)"
+        traefik.http.routers.arcane.entrypoints: "web"
+        traefik.http.services.arcane.loadbalancer.server.port: "3552"
 
 volumes:
   arcane-data:
@@ -64,6 +65,8 @@ networks:
   arcane:
     driver: overlay
     attachable: true
+  traefik-public:
+    external: true
 
 secrets:
   arcane_encryption_key:

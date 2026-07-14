@@ -21,6 +21,7 @@ need "bootstrap/doco-cd/compose.yaml"
 need "bootstrap/doco-cd/poll-config.yaml"
 need "apps/arcane/compose.yaml"
 need "apps/arcane/secrets/README.md"
+need "apps/traefik/compose.yaml"
 if [[ ! -f apps/arcane/secrets/encryption_key.enc.txt ]]; then
   need "apps/arcane/secrets/.gitkeep"
   ok "arcane secrets pending encryption (.gitkeep present)"

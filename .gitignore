@@ -1,5 +1,6 @@
 .superpowers/
 .worktrees/
+.cursor/
 
 # Never commit decrypt material or local plaintext
 sops_age_key.txt
