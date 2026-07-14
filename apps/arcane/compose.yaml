@@ -1,0 +1,74 @@
+version: "3.9"
+
+services:
+  arcane:
+    image: ghcr.io/getarcaneapp/manager:latest
+    ports:
+      - target: 3552
+        published: 3552
+        protocol: tcp
+        mode: ingress
+    environment:
+      APP_URL: "https://CHANGE_ME:3552"
+      PUID: "1000"
+      PGID: "1000"
+      LOG_LEVEL: "info"
+      LOG_JSON: "false"
+      OIDC_ENABLED: "false"
+      PROJECTS_DIRECTORY: "/opt/stacks"
+      ENCRYPTION_KEY__FILE: "/run/secrets/arcane_encryption_key"
+      JWT_SECRET__FILE: "/run/secrets/arcane_jwt_secret"
+      DATABASE_URL__FILE: "/run/secrets/arcane_database_url"
+    secrets:
+      - source: arcane_encryption_key
+        target: arcane_encryption_key
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+      - source: arcane_jwt_secret
+        target: arcane_jwt_secret
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+      - source: arcane_database_url
+        target: arcane_database_url
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+    volumes:
+      - arcane-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/stacks:/opt/stacks
+    networks:
+      - arcane
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+      labels:
+        cloud.subtract.application: "arcane"
+        cloud.subtract.environment: "production"
+        cloud.subtract.managed-by: "doco-cd"
+        cloud.subtract.provisioning-source: "git"
+
+volumes:
+  arcane-data:
+    driver: local
+    labels:
+      cloud.subtract.application: "arcane"
+
+networks:
+  arcane:
+    driver: overlay
+    attachable: true
+
+secrets:
+  arcane_encryption_key:
+    file: ./secrets/encryption_key.enc.txt
+  arcane_jwt_secret:
+    file: ./secrets/jwt_secret.enc.txt
+  arcane_database_url:
+    file: ./secrets/database_url.enc.txt
