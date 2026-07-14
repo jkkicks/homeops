@@ -69,6 +69,7 @@ docker secret create \
 
 ```bash
 # Create a Git PAT (or deploy token) scoped to read this repo, then:
+export GIT_TOKEN='YOUR_ACTUAL_TOKEN_HERE'
 printf '%s' "$GIT_TOKEN" > git_access_token.txt
 docker secret create \
   --label cloud.subtract.application=doco-cd \
@@ -88,7 +89,7 @@ docker secret ls --filter label=cloud.subtract.application=doco-cd
 Now shred the local plaintext copies — they only need to exist long enough to load into Docker secrets and the offline backup:
 
 ```bash
-shred -u sops_age_key.txt git_access_token.txt age.pubkey.new
+rm -f sops_age_key.txt git_access_token.txt age.pubkey.new
 ```
 
 (`sops_age_key.txt` should already be safely backed up offline per Step 2 before you shred it here.)
