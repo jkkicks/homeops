@@ -10,6 +10,9 @@ services:
       - --providers.swarm.network=traefik-public
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
+      - --entrypoints.ping.address=:8082
+      - --ping=true
+      - --ping.entrypoint=ping
       - --api.dashboard=false
       - --log.level=INFO
     ports:
@@ -25,6 +28,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - traefik-public
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     deploy:
       mode: global
       placement:
