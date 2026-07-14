@@ -27,11 +27,11 @@ cd /path/to/this/clone
 age-keygen -o sops_age_key.txt
 
 # Derive the public key from it
-age-keygen -y sops_age_key.txt > age.pubkey.new
-cat age.pubkey.new
+age-keygen -y sops_age_key.txt > age.pubkey
+cat age.pubkey
 ```
 
-1. **Back up `sops_age_key.txt` offline immediately** (e.g. a Vaultwarden secure note or equivalent). This is the *only* recovery path if the Docker secret is ever lost — see [Lost age key](#8-recovery-lost-age-key). Do this before anything else touches the file.
+1. **Back up `sops_age_key.txt` offline immediately** (e.g. a Vaultwarden secure note or equivalent). This is the _only_ recovery path if the Docker secret is ever lost — see [Lost age key](#8-recovery-lost-age-key). Do this before anything else touches the file.
 2. Update the two committed files with the real public key:
    - Replace the placeholder line in `age.pubkey` with the contents of `age.pubkey.new`.
    - Replace the placeholder `age:` value in `.sops.yaml` with the same public key.
