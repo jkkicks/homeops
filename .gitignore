@@ -10,3 +10,4 @@ age-key.txt
 **/*.dec.yaml
 **/*.dec.env
 secrets/commands.txt
+git_access_token.txt
