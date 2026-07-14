@@ -100,7 +100,7 @@ Prerequisite: Docker Swarm is already initialized and managers are available. (N
 
 **Human does only:**
 
-1. Confirm Swarm is ready.
+1. Point the local Docker CLI at a Swarm manager (Docker context) and confirm Swarm is ready.
 2. Generate an age keypair for this clone/environment.
 3. Create a Docker secret containing the age **private** key (for doco-cd / SOPS decrypt).
 4. Store an offline backup of that private key in a highly secure location.

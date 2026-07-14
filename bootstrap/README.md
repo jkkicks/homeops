@@ -2,21 +2,51 @@
 
 One-time human checklist to take a fresh clone of this repo from "Swarm exists" to "doco-cd is polling git and deploying stacks." After this, day-2 changes are a git workflow — see [docs/day-2-apps.md](../docs/day-2-apps.md).
 
-Run all steps below on a **Swarm manager** node, with this repo checked out.
+Run all steps below from a machine that has this repo checked out and a Docker CLI pointed at a **Swarm manager** (via Docker context — see Step 1). You do **not** need to SSH into the manager and run Docker there, as long as the context targets a manager.
 
 ---
 
-## 1. Confirm Swarm is ready
+## 1. Point your local Docker CLI at the Swarm
+
+Bootstrap and day-2 `docker` commands (secrets, stack deploy, service ls/logs) talk to the Swarm API. Create a Docker context on your local machine so the default CLI target is a manager — do this before any later step.
+
+SSH is the usual homelab path (Docker uses your existing SSH config/keys):
+
+```bash
+# Name and host are examples — use your manager's SSH user@host
+docker context create homeops-swarm \
+  --description "Homeops Swarm manager" \
+  --docker "host=ssh://USER@MANAGER_HOST"
+
+docker context use homeops-swarm
+docker context show   # expect: homeops-swarm
+```
+
+If you already manage the daemon over TCP + TLS instead of SSH:
+
+```bash
+docker context create homeops-swarm \
+  --docker "host=tcp://MANAGER_HOST:2376,ca=~/.docker/ca.pem,cert=~/.docker/cert.pem,key=~/.docker/key.pem"
+docker context use homeops-swarm
+```
+
+To switch back to the local Docker engine later: `docker context use default`.
+
+---
+
+## 2. Confirm Swarm is ready
+
+With the Swarm context selected:
 
 ```bash
 docker info --format '{{.Swarm.LocalNodeState}} {{.Swarm.ControlAvailable}}'
 ```
 
-Expected: `active true` — this node is an active Swarm member with manager control. If you see `inactive` or `false`, fix Swarm/manager status before continuing (node provisioning is out of scope for this repo).
+Expected: `active true` — the context's daemon is an active Swarm member with manager control. If you see `inactive` or `false`, fix the context (wrong host / not a manager) or Swarm status before continuing (node provisioning is out of scope for this repo).
 
 ---
 
-## 2. Generate the cluster age keypair
+## 3. Generate the cluster age keypair
 
 `doco-cd` uses an [age](https://github.com/FiloSottile/age) keypair to decrypt SOPS secrets. Generate one **per clone/environment** — never reuse a private key across environments.
 
@@ -31,7 +61,7 @@ age-keygen -y sops_age_key.txt > age.pubkey
 cat age.pubkey
 ```
 
-1. **Back up `sops_age_key.txt` offline immediately** (e.g. a Vaultwarden secure note or equivalent). This is the _only_ recovery path if the Docker secret is ever lost — see [Lost age key](#8-recovery-lost-age-key). Do this before anything else touches the file.
+1. **Back up `sops_age_key.txt` offline immediately** (e.g. a Vaultwarden secure note or equivalent). This is the _only_ recovery path if the Docker secret is ever lost — see [Lost age key](#9-recovery-lost-age-key). Do this before anything else touches the file.
 2. Update the two committed files with the real public key:
    - Replace the placeholder line in `age.pubkey` with the contents of `age.pubkey.new`.
    - Replace the placeholder `age:` value in `.sops.yaml` with the same public key.
@@ -47,11 +77,11 @@ EOF
 git push
 ```
 
-Keep `sops_age_key.txt` (the **private** key) out of git — it is already covered by `.gitignore`. Do not delete it yet; you need it for Step 3.
+Keep `sops_age_key.txt` (the **private** key) out of git — it is already covered by `.gitignore`. Do not delete it yet; you need it for Step 4.
 
 ---
 
-## 3. Create the bootstrap Docker secrets
+## 4. Create the bootstrap Docker secrets
 
 Two Docker secrets let doco-cd decrypt SOPS ciphertext and authenticate to git. Both are created **external** to compose (see `bootstrap/doco-cd/compose.yaml`) so the very first deploy — before doco-cd has ever run — already has what it needs.
 
@@ -92,11 +122,11 @@ Now shred the local plaintext copies — they only need to exist long enough to 
 rm -f sops_age_key.txt git_access_token.txt age.pubkey.new
 ```
 
-(`sops_age_key.txt` should already be safely backed up offline per Step 2 before you shred it here.)
+(`sops_age_key.txt` should already be safely backed up offline per Step 3 before you shred it here.)
 
 ---
 
-## 4. Point `poll-config.yaml` at this clone's remote
+## 5. Point `poll-config.yaml` at this clone's remote
 
 Edit `bootstrap/doco-cd/poll-config.yaml`:
 
@@ -123,9 +153,9 @@ git push
 
 ---
 
-## 5. Deploy doco-cd
+## 6. Deploy doco-cd
 
-The stack's `configs.file: ./poll-config.yaml` entry is resolved **relative to the compose file's location**, not your shell's cwd. Run `docker stack deploy` from the **repo root**, passing the path to the compose file exactly as below — Docker Compose resolves `./poll-config.yaml` against the directory containing `compose.yaml` (i.e. `bootstrap/doco-cd/`), so this only works correctly when the repo is checked out on this manager and you invoke it with a real path (not piped from stdin):
+The stack's `configs.file: ./poll-config.yaml` entry is resolved **relative to the compose file's location**, not your shell's cwd. Run `docker stack deploy` from the **repo root** on the machine that has the clone (with the Swarm Docker context still selected), passing the path to the compose file exactly as below — the CLI resolves `./poll-config.yaml` against the directory containing `compose.yaml` (i.e. `bootstrap/doco-cd/`) and sends the content to the Swarm. Use a real path (not piped from stdin):
 
 ```bash
 cd /path/to/this/clone   # repo root
@@ -143,13 +173,13 @@ Either form works as long as `poll-config.yaml` sits next to `compose.yaml` when
 
 ---
 
-## 6. Verify
+## 7. Verify
 
 ```bash
 docker service ls
 ```
 
-Expected: a service named `doco-cd_doco-cd` (or similar), `1/1` replicas, running on this manager.
+Expected: a service named `doco-cd_doco-cd` (or similar), `1/1` replicas, running on a manager.
 
 ```bash
 docker service logs -f doco-cd_doco-cd
@@ -166,9 +196,9 @@ docker service ls
 
 ---
 
-## 7. Recovery: redeploy doco-cd manually
+## 8. Recovery: redeploy doco-cd manually
 
-doco-cd may self-update itself from `bootstrap/doco-cd` (see `.doco-cd.yaml`). If a bad commit or self-update ever breaks doco-cd (crash loop, stuck deploy, wrong image tag, etc.), redeploy it by hand from a manager — the same command as first deploy:
+doco-cd may self-update itself from `bootstrap/doco-cd` (see `.doco-cd.yaml`). If a bad commit or self-update ever breaks doco-cd (crash loop, stuck deploy, wrong image tag, etc.), redeploy it by hand with the Swarm Docker context selected — the same command as first deploy:
 
 ```bash
 cd /path/to/this/clone
@@ -188,11 +218,11 @@ Removing the stack does **not** remove the `sops_age_key` / `git_access_token` D
 
 ---
 
-## 8. Recovery: lost age key
+## 9. Recovery: lost age key
 
 Swarm secrets are **immutable** — you cannot update `sops_age_key` in place. If the Docker secret is deleted, corrupted, or the manager is rebuilt:
 
-1. Restore the private key from your **offline backup** (from Step 2) to a local file, e.g. `sops_age_key.txt`.
+1. Restore the private key from your **offline backup** (from Step 3) to a local file, e.g. `sops_age_key.txt`.
 2. Confirm it matches the committed public key:
 
    ```bash
@@ -200,7 +230,7 @@ Swarm secrets are **immutable** — you cannot update `sops_age_key` in place. I
    # compare output to age.pubkey — must match exactly
    ```
 
-3. Remove the old secret (only once nothing is using it — stop/remove the doco-cd stack first) and recreate it under the **same name** so `bootstrap/doco-cd/compose.yaml` needs no changes:
+3. With the Swarm Docker context selected, remove the old secret (only once nothing is using it — stop/remove the doco-cd stack first) and recreate it under the **same name** so `bootstrap/doco-cd/compose.yaml` needs no changes:
 
    ```bash
    docker stack rm doco-cd
@@ -220,7 +250,7 @@ Swarm secrets are **immutable** — you cannot update `sops_age_key` in place. I
 
 **If the private key was compromised** (not just lost) rather than merely lost, treat it as a rotation, not a restore:
 
-1. Generate a **new** age keypair (Step 2), update `age.pubkey` / `.sops.yaml`, commit and push.
+1. Generate a **new** age keypair (Step 3), update `age.pubkey` / `.sops.yaml`, commit and push.
 2. Re-encrypt every SOPS file in the repo (`apps/**/secrets/*.enc.*`) with the new public key.
 3. Recreate the `sops_age_key` Docker secret with the **new** private key using the same procedure as above.
 4. Redeploy doco-cd, then confirm every app's secrets decrypt and Docker secrets rotate cleanly.

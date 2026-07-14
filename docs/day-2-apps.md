@@ -18,4 +18,4 @@ Edit compose → commit → push. doco-cd reconciles the stack.
 
 ## Observe
 
-Use Arcane and `docker` CLI. Durable fixes still go through git.
+Use Arcane and the `docker` CLI with your Swarm Docker context selected (see [bootstrap/README.md](../bootstrap/README.md) Step 1). Durable fixes still go through git.

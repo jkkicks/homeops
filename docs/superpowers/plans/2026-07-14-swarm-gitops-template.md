@@ -371,7 +371,7 @@ configs:
     file: ./poll-config.yaml
 ```
 
-If Swarm `configs.file` relative paths prove awkward on first `docker stack deploy`, the bootstrap README must document copying/using `--compose-file` from the checked-out path on the manager (see Step 4).
+If Swarm `configs.file` relative paths prove awkward on first `docker stack deploy`, the bootstrap README must document using `--compose-file` from the local checkout while the Docker context points at a manager (see Step 4).
 
 - [x] **Step 3: Write `bootstrap/doco-cd/secrets/README.md`**
 
@@ -396,19 +396,20 @@ Additional encrypted files for doco-cd may be added here once SOPS decrypt is pr
 
 Must cover:
 
-1. Confirm `docker info` shows Swarm active / this node is a manager.
-2. `age-keygen -o sops_age_key.txt` → backup private key offline → `age-keygen -y sops_age_key.txt > age.pubkey` → update committed `age.pubkey` and `.sops.yaml` → commit.
-3. `docker secret create` for `sops_age_key` and `git_access_token` with labels (`cloud.subtract.*`).
-4. Edit `poll-config.yaml` URL/branch to this remote; commit if needed.
-5. From a manager with this repo checked out:
+1. **Local Docker context:** create/use a Docker context on the operator's machine that points at a Swarm manager (SSH or TCP+TLS). Do not assume the default local engine is the Swarm. Document `docker context create` / `docker context use` and verify with `docker context show`.
+2. Confirm `docker info` (via that context) shows Swarm active / manager control available.
+3. `age-keygen -o sops_age_key.txt` → backup private key offline → `age-keygen -y sops_age_key.txt > age.pubkey` → update committed `age.pubkey` and `.sops.yaml` → commit.
+4. `docker secret create` for `sops_age_key` and `git_access_token` with labels (`cloud.subtract.*`) — against the Swarm context, not the local engine.
+5. Edit `poll-config.yaml` URL/branch to this remote; commit if needed.
+6. From the local clone (Swarm context selected):
 
 ```bash
 docker stack deploy -c bootstrap/doco-cd/compose.yaml doco-cd
 ```
 
-6. Verify: `docker service ls`, doco-cd logs, first poll succeeds.
-7. **Recovery:** how to redeploy doco-cd manually if self-update breaks it (same stack deploy command).
-8. **Lost age key:** restore from offline backup into a new/updated Docker secret workflow (note: Swarm secrets are immutable — create new secret name or remove stack/secret carefully; document the safe path).
+7. Verify: `docker service ls`, doco-cd logs, first poll succeeds.
+8. **Recovery:** how to redeploy doco-cd manually if self-update breaks it (same stack deploy command, same context).
+9. **Lost age key:** restore from offline backup into a new/updated Docker secret workflow (note: Swarm secrets are immutable — create new secret name or remove stack/secret carefully; document the safe path).
 
 Include label examples matching existing style:
 
@@ -685,7 +686,9 @@ EOF
 **Files:**
 - Modify: `bootstrap/README.md` (add “Verification” section if anything learned)
 
-This task is executed on a real Swarm manager (homelab), not only in git.
+This task is executed against a real Swarm (homelab) from a local machine with a Docker context pointing at a manager — not only in git, and not assuming Docker is already targeting the Swarm.
+
+- [ ] **Step 0: Create/use a Docker context aimed at a Swarm manager; `docker context show` + `docker info` confirm manager control**
 
 - [ ] **Step 1: Generate real age key; update `age.pubkey` + `.sops.yaml`; commit**
 
