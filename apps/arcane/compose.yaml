@@ -50,7 +50,7 @@ services:
         cloud.subtract.managed-by: "doco-cd"
         cloud.subtract.provisioning-source: "git"
         traefik.enable: "true"
-        traefik.docker.network: "traefik-public"
+        traefik.swarm.network: "traefik-public"
         traefik.http.routers.arcane.rule: "Host(`10.0.0.204`)"
         traefik.http.routers.arcane.entrypoints: "web"
         traefik.http.services.arcane.loadbalancer.server.port: "3552"

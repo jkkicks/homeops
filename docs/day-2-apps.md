@@ -33,7 +33,7 @@ Do **not** publish host ports on app services. Only Traefik binds `80`/`443`.
    deploy:
      labels:
        traefik.enable: "true"
-       traefik.docker.network: "traefik-public"
+       traefik.swarm.network: "traefik-public"
        traefik.http.routers.<name>.rule: "Host(`app.example.com`)"
        traefik.http.routers.<name>.entrypoints: "web"
        traefik.http.services.<name>.loadbalancer.server.port: "<container-port>"
