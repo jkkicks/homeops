@@ -5,7 +5,7 @@ compose_files:
   - compose.yaml
 remove_orphans: true
 ---
-# Deployment 2: every apps/<dir> with a compose file becomes a stack
+# Every apps/<dir> with a compose file becomes a stack
 name: apps
 working_dir: apps
 auto_discovery:
