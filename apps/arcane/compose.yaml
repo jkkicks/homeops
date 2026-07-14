@@ -7,7 +7,7 @@ services:
       - target: 3552
         published: 3552
         protocol: tcp
-        mode: ingress
+        mode: host
     environment:
       APP_URL: "http://10.0.0.204:3552"
       PUID: "1000"
