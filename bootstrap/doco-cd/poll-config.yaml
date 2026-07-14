@@ -1,0 +1,4 @@
+# Replace url with this clone's Git remote. reference must match the branch you deploy from.
+- url: https://github.com/EXAMPLE/homeops.git
+  reference: refs/heads/main
+  interval: 60s

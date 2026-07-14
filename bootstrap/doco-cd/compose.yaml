@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  doco-cd:
+    image: ghcr.io/kimdre/doco-cd:latest
+    environment:
+      TZ: UTC
+      SOPS_AGE_KEY_FILE: /run/secrets/sops_age_key
+      GIT_ACCESS_TOKEN_FILE: /run/secrets/git_access_token
+      POLL_CONFIG_FILE: /poll-config.yaml
+      # Swarm features on by default when daemon is in Swarm mode
+    secrets:
+      - source: sops_age_key
+        target: sops_age_key
+      - source: git_access_token
+        target: git_access_token
+    configs:
+      - source: poll_config
+        target: /poll-config.yaml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - doco-cd-data:/data
+    networks:
+      - doco-cd
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+      labels:
+        cloud.subtract.application: "doco-cd"
+        cloud.subtract.environment: "production"
+        cloud.subtract.managed-by: "bootstrap"
+        cloud.subtract.provisioning-source: "git"
+
+volumes:
+  doco-cd-data:
+    driver: local
+    labels:
+      cloud.subtract.application: "doco-cd"
+
+networks:
+  doco-cd:
+    driver: overlay
+    attachable: true
+
+secrets:
+  sops_age_key:
+    external: true
+  git_access_token:
+    external: true
+
+configs:
+  poll_config:
+    file: ./poll-config.yaml
