@@ -36,7 +36,7 @@ else
 fi
 
 # Private age key must not be committed
-if git ls-files | grep -E '(^|/ )?(sops_age_key\.txt|age-key\.txt|\.age-key)$' ; then
+if git ls-files | grep -E '(^|.*/)(sops_age_key\.txt|age-key\.txt|\.age-key)$' ; then
   fail "age private key file appears tracked by git"
 else
   ok "no tracked age private key filenames"
