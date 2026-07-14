@@ -99,6 +99,9 @@ docker secret create \
 
 ```bash
 # Create a Git PAT (or deploy token) scoped to read this repo, then:
+# The file must contain ONLY the raw token (e.g. github_pat_… or ghp_…).
+# No labels ("github PAT:"), quotes, or trailing newline — those cause
+# "Invalid username or token" on poll.
 export GIT_TOKEN='YOUR_ACTUAL_TOKEN_HERE'
 printf '%s' "$GIT_TOKEN" > git_access_token.txt
 docker secret create \
