@@ -2,7 +2,8 @@ version: "3.9"
 
 services:
   traefik:
-    image: traefik:v3.4
+    # v3.6.1+ negotiates Docker API correctly with Engine 29+ (min API 1.44)
+    image: traefik:v3.6.6
     command:
       # Traefik v3: Swarm is its own provider (docker.swarmMode was removed)
       - --providers.swarm=true
