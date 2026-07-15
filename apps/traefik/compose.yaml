@@ -7,6 +7,7 @@ services:
       # Read-only allowlist for Traefik swarm provider (POST stays denied by default)
       CONTAINERS: "1"
       NETWORKS: "1"
+      NODES: "1"
       SERVICES: "1"
       TASKS: "1"
     volumes:
@@ -56,7 +57,16 @@ services:
       - traefik-public
       - traefik-socket
     healthcheck:
-      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      # CLI defaults to :8080; must match the ping entrypoint above
+      test:
+        [
+          "CMD",
+          "traefik",
+          "healthcheck",
+          "--ping",
+          "--ping.entrypoint=ping",
+          "--entrypoints.ping.address=:8082",
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
