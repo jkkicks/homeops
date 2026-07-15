@@ -1,11 +1,37 @@
 version: "3.9"
 
 services:
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.4.2
+    environment:
+      # Read-only allowlist for Traefik swarm provider (POST stays denied by default)
+      CONTAINERS: "1"
+      NETWORKS: "1"
+      SERVICES: "1"
+      TASKS: "1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik-socket
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: any
+      labels:
+        cloud.subtract.application: "traefik"
+        cloud.subtract.environment: "production"
+        cloud.subtract.managed-by: "doco-cd"
+        cloud.subtract.provisioning-source: "git"
+        cloud.subtract.role: "socket-proxy"
+
   traefik:
     image: traefik:v3.6.6
     command:
       - --providers.swarm=true
-      - --providers.swarm.endpoint=unix:///var/run/docker.sock
+      - --providers.swarm.endpoint=tcp://socket-proxy:2375
       - --providers.swarm.exposedByDefault=false
       - --providers.swarm.network=traefik-public
       - --entrypoints.web.address=:80
@@ -26,10 +52,9 @@ services:
         published: 443
         protocol: tcp
         mode: host
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - traefik-public
+      - traefik-socket
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 10s
@@ -58,3 +83,10 @@ networks:
     labels:
       cloud.subtract.application: "traefik"
       cloud.subtract.role: "ingress"
+  traefik-socket:
+    name: traefik-socket
+    driver: overlay
+    internal: true
+    labels:
+      cloud.subtract.application: "traefik"
+      cloud.subtract.role: "socket-proxy"
