@@ -31,7 +31,8 @@ else
   need "apps/arcane/secrets/database_url.enc.txt"
 fi
 need "docs/security-policy.md"
-need "docs/day-2-apps.md"
+need "docs/apps.md"
+need "docs/ansible-bootstrap.md"
 
 # Forbid known plaintext secret dumps
 if [[ -f "apps/arcane.yaml" ]]; then

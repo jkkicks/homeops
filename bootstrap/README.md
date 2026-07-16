@@ -1,6 +1,8 @@
 # Bootstrap
 
-One-time human checklist to take a fresh clone of this repo from "Swarm exists" to "doco-cd is polling git and deploying stacks." After this, day-2 changes are a git workflow — see [docs/day-2-apps.md](../docs/day-2-apps.md).
+One-time human checklist to take a fresh clone of this repo from "Swarm exists" to "doco-cd is polling git and deploying stacks." After this, app changes are a git workflow — see [docs/apps.md](../docs/apps.md).
+
+Planned replacement for the “Swarm already exists” assumption: [docs/ansible-bootstrap.md](../docs/ansible-bootstrap.md) (design; Ansible not implemented yet).
 
 Run all steps below from a machine that has this repo checked out and a Docker CLI pointed at a **Swarm manager** (via Docker context — see Step 1). You do **not** need to SSH into the manager and run Docker there, as long as the context targets a manager.
 
@@ -8,7 +10,7 @@ Run all steps below from a machine that has this repo checked out and a Docker C
 
 ## 1. Point your local Docker CLI at the Swarm
 
-Bootstrap and day-2 `docker` commands (secrets, stack deploy, service ls/logs) talk to the Swarm API. Create a Docker context on your local machine so the default CLI target is a manager — do this before any later step.
+Bootstrap and later `docker` commands (secrets, stack deploy, service ls/logs) talk to the Swarm API. Create a Docker context on your local machine so the default CLI target is a manager — do this before any later step.
 
 SSH is the usual homelab path (Docker uses your existing SSH config/keys):
 

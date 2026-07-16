@@ -1,4 +1,6 @@
-# Day-2: apps
+# Apps
+
+Related: [Ansible bootstrap design](ansible-bootstrap.md) · [Security policy](security-policy.md) · [bootstrap/README.md](../bootstrap/README.md)
 
 ## Add an app
 
