@@ -15,15 +15,20 @@ Related: [Ansible bootstrap design](ansible-bootstrap.md) · [Apps](apps.md)
 
 ## Bootstrap chicken-and-egg
 
-Human creates (today’s checklist) or Ansible greenfield will create:
+Ansible greenfield creates:
 
 1. Age private key → Docker secret (e.g. `sops_age_key`)
 2. Git credential → Docker secret (e.g. `git_access_token`) for first doco-cd deploy
-3. Deploys doco-cd (`bootstrap/doco-cd` today; `apps/doco-cd` after Ansible lands)
+3. Deploys doco-cd from `apps/doco-cd`
 
 After that, app secrets are managed from encrypted files in git via doco-cd.
 
-Long-lived **operator-side** Ansible secrets (when Ansible exists) are SOPS ciphertext under **`bootstrap/ansible/secrets/`**, **committed** like app secrets. Bootstrap-window plaintext at repo root is gitignored; after greenfield, required secrets are SOPS’d into that directory and root plaintext is deleted. The age **private** key is never committed (cold backup + Docker secret only). See [ansible-bootstrap.md](ansible-bootstrap.md).
+Long-lived **operator-side** Ansible secrets are SOPS ciphertext under
+**`bootstrap/ansible/secrets/`**, **committed** like app secrets.
+Bootstrap-window plaintext at repo root is gitignored; after greenfield,
+required secrets are SOPS-encrypted into that directory and root plaintext is
+deleted. The age **private** key is never committed (cold backup + Docker
+secret only). See [ansible-bootstrap.md](ansible-bootstrap.md).
 
 ## Forbidden
 

@@ -1,6 +1,6 @@
 # Homeops
 
-One clone of this repository is one Docker Swarm environment. Git is desired state; doco-cd deploys; Ansible (designed, not yet built) bootstraps hosts into that world.
+One clone of this repository is one Docker Swarm environment. Git is desired state; doco-cd deploys; Ansible bootstraps and verifies hosts into that world.
 
 ## Language
 

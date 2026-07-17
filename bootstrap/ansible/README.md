@@ -1,8 +1,7 @@
 # Ansible bootstrap
 
-This is the Ansible skeleton for greenfield bootstrap, join, and verification.
-Roles are completed by the remaining implementation tasks. Until that work is
-finished, follow the live human procedure in [`../README.md`](../README.md).
+This is the operator runbook for greenfield bootstrap, joining new nodes, and
+non-mutating verification. Run all `make` commands from the repository root.
 
 ## Operator machine checklist
 
@@ -22,8 +21,9 @@ Before `make greenfield` or `make join`:
    private key before greenfield bootstrap.
 7. In Netbird, create a setup key with automatic environment-group assignment.
    Configure full access in that group and TCP 80/443 from other Netbird peers.
-8. After greenfield bootstrap, confirm SOPS ciphertext in `secrets/` is
-   committed and all repo-root plaintext has been deleted.
+8. After greenfield bootstrap, confirm SOPS ciphertext in
+   `bootstrap/ansible/secrets/` is committed and all repo-root plaintext has
+   been deleted.
 
 Install pinned Galaxy dependencies once:
 
@@ -31,7 +31,11 @@ Install pinned Galaxy dependencies once:
 ansible-galaxy install -r bootstrap/ansible/requirements.yml
 ```
 
-Run `make lint` before executing a playbook.
+Run `make lint` before executing a playbook. Then use:
+
+- `AGE_BACKUP_CONFIRMED=yes make greenfield` for a new environment.
+- `make join` after adding new inventory hosts to `new_nodes`.
+- `make verify` for completion-contract checks that do not mutate hosts.
 
 ## Bootstrap-window cutover
 
@@ -48,5 +52,7 @@ successful host cutover:
 3. Remove the host from `new_nodes`.
 
 Do this before a second run: public TCP/22 is closed after the first successful
-cutover. The Docker, Swarm, doco-cd, and full verification roles remain deferred
-and are intentionally absent from the greenfield and join playbooks for now.
+cutover.
+
+See [the design document](../../docs/ansible-bootstrap.md) for inventory
+semantics, security decisions, failure behavior, and completion contracts.

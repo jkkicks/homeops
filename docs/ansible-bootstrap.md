@@ -1,8 +1,8 @@
 # Ansible bootstrap design
 
-Design for taking bare Ubuntu 24.04 VMs to a verified doco-cd-managed Swarm over Netbird. **This document is the plan** — the Ansible tree is not implemented yet.
+Design and implementation source of truth for taking bare Ubuntu 24.04 VMs to a verified doco-cd-managed Swarm over Netbird. The shipped operator entrypoint is [`bootstrap/ansible/`](../bootstrap/ansible/README.md).
 
-Related: [Apps](apps.md) · [Security policy](security-policy.md) · [Research](research/) · current human checklist [bootstrap/README.md](../bootstrap/README.md)
+Related: [Apps](apps.md) · [Security policy](security-policy.md) · [Research](research/) · [operator runbook](../bootstrap/ansible/README.md)
 
 Wayfinder map (planning index): `.scratch/ansible-bootstrap/map.md`
 
@@ -165,7 +165,7 @@ Research: [research/ubuntu-hardening-baseline.md](research/ubuntu-hardening-base
 2. Lockdown on all `new_nodes` (§5), with **serial: 1** for managers when applying network/Docker restarts.
 3. Docker CE (official apt), **pinned** in `group_vars`; configure conservative `daemon.json` (log rotation, no unauthenticated remote TCP API, live-restore, etc.). Prefer `geerlingguy.docker` (or equivalent) + thin local policy role if pins work.
 4. Swarm: first `managers` host inits with Netbird advertise/data-path; others join via runtime tokens (`community.docker` preferred). Fail if a host is already in a **different** Swarm.
-5. doco-cd: create Docker secrets; deploy from **`apps/doco-cd/compose.yaml`** only (no duplicate compose in the role). Move from `bootstrap/doco-cd/` as part of implementation.
+5. doco-cd: create Docker secrets; deploy from **`apps/doco-cd/compose.yaml`** only (no duplicate compose in the role).
 6. Run completion contract (§11).
 7. **Required:** SOPS-encrypt `git_access_token` into `bootstrap/ansible/secrets/`, commit ciphertext; delete root plaintext (age key + Netbird setup key + SSH bootstrap secrets deleted per §3 — age key never SOPS’d into git).
 8. Later Ansible runs: **do not** fight doco-cd — verify/restore stack only if missing; no routine redeploy.
@@ -184,7 +184,7 @@ Research: [research/ubuntu-hardening-baseline.md](research/ubuntu-hardening-base
 
 ## 8. Operator machine checklist
 
-Documented here and to be mirrored in `bootstrap/ansible/README.md` when Ansible ships. Before `make greenfield` / `make join`:
+The live checklist is maintained in `bootstrap/ansible/README.md`. Before `make greenfield` / `make join`:
 
 1. **Clone** this environment repo; operator machine can reach new hosts’ **public SSH** (key or password as inventoried).
 2. **Netbird:** operator peer enrolled in Netbird Cloud and in the environment group (e.g. `{env}-operators`) so mesh SSH works after cutover.
@@ -248,7 +248,7 @@ bootstrap/
       verify/
   README.md                   # short operator pointer (replaces long checklist when Ansible ships)
 apps/
-  doco-cd/                    # migrated from bootstrap/doco-cd
+  doco-cd/                    # application stack deployed during greenfield
 ssh-keys/                     # repo root — committed public keys only
 ```
 
@@ -320,6 +320,6 @@ Flat `docs/` with relative links ([ansible-bootstrap](ansible-bootstrap.md), [ap
 3. Docker (pinned + daemon.json) + Swarm init/join (`community.docker`) + serial behavior.
 4. `doco_cd` from `apps/doco-cd` + required SOPS into `bootstrap/ansible/secrets/` + delete root plaintext.
 5. `verify` playbook + greenfield/join contracts; idempotent second runs.
-6. README / docs cutover; remove obsolete long human checklist steps.
+6. README / docs cutover; remove obsolete long human checklist steps. **Shipped.**
 
-Until then, live path remains [bootstrap/README.md](../bootstrap/README.md) (Swarm already exists).
+The live path is the [Ansible operator runbook](../bootstrap/ansible/README.md).

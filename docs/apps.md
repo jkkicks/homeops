@@ -9,6 +9,10 @@ Related: [Ansible bootstrap design](ansible-bootstrap.md) · [Security policy](s
 3. Reference secret files from compose (`secrets:` → `file: ./secrets/...`).
 4. Commit and push. doco-cd auto-discovers directories under `apps/` (see `.doco-cd.yaml`).
 
+doco-cd itself follows the same app layout at
+[`apps/doco-cd/`](../apps/doco-cd/). Ansible performs its initial greenfield
+deploy; its local README documents manual recovery.
+
 ## Expose an app through Traefik
 
 Do **not** publish host ports on app services. Only Traefik binds `80`/`443`.
@@ -56,4 +60,5 @@ Edit compose → commit → push. doco-cd reconciles the stack.
 
 ## Observe
 
-Use Arcane and the `docker` CLI with your Swarm Docker context selected (see [bootstrap/README.md](../bootstrap/README.md) Step 1). Durable fixes still go through git.
+Use Arcane and the `docker` CLI with a context pointed at a Swarm manager.
+Durable fixes still go through git.
