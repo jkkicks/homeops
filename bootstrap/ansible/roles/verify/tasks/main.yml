@@ -103,6 +103,17 @@
   delegate_to: "{{ groups['managers'][0] }}"
   register: verify_manager_host
 
+- name: Inspect persisted Swarm network addresses
+  ansible.builtin.stat:
+    path: /etc/homeops/swarm-network-addresses.json
+  register: verify_swarm_network_addresses_file
+
+- name: Read persisted Swarm network addresses
+  ansible.builtin.slurp:
+    src: /etc/homeops/swarm-network-addresses.json
+  register: verify_swarm_network_addresses
+  when: verify_swarm_network_addresses_file.stat.exists
+
 - name: REQUIREMENT HOST_BASELINE
   ansible.builtin.assert:
     that:
@@ -224,30 +235,35 @@
   delegate_to: "{{ groups['managers'][0] }}"
   register: verify_manager_node
 
-- name: Inspect Swarm ingress data-path peers
-  ansible.builtin.command:
-    argv:
-      - docker
-      - network
-      - inspect
-      - --format
-      - "{{ '{{ json .Peers }}' }}"
-      - ingress
-  register: verify_swarm_data_path_peers
-  changed_when: false
-  check_mode: false
+- name: REQUIREMENT SWARM_DATA_PATH
+  ansible.builtin.assert:
+    that:
+      - verify_swarm_network_addresses_file.stat.exists
+      - >-
+        (verify_swarm_network_addresses.content | default('e30=') |
+        b64decode | from_json).data_path_addr | default('') == netbird_ip
+      - >-
+        (verify_swarm_network_addresses.content | default('e30=') |
+        b64decode | from_json).data_path_addr | default('')
+        is match('^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$')
+      - >-
+        (verify_swarm_network_addresses.content | default('e30=') |
+        b64decode | from_json).data_path_addr | default('')
+        is match(
+          '^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|'
+          ~ '100\.(6[4-9]|[78][0-9]|9[0-9]|1[01][0-9]|12[0-7])\.)'
+        )
+    fail_msg: >-
+      REQUIREMENT SWARM_DATA_PATH failed: the root-only data-path marker must
+      equal the inventoried private Netbird IP. For a pre-existing member with
+      no marker, re-run the greenfield or join Swarm path to recreate
+      membership and persist the configured address.
 
 - name: REQUIREMENT SWARM_NODE_STATE
   ansible.builtin.assert:
     that:
       - verify_docker_host.host_info.Swarm.LocalNodeState == "active"
       - verify_docker_host.host_info.Swarm.NodeAddr == netbird_ip
-      - >-
-        verify_swarm_data_path_peers.stdout
-        | from_json
-        | selectattr('IP', 'equalto', netbird_ip)
-        | list
-        | length == 1
       - verify_manager_node.nodes | length == 1
       - verify_manager_node.nodes[0].Status.State == "ready"
       - verify_manager_node.nodes[0].Status.Addr == netbird_ip

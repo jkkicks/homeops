@@ -80,7 +80,7 @@
     owner: root
     group: root
     mode: "0755"
-  when: swarm_action == "init"
+  when: swarm_local_state == "inactive"
 
 - name: Record initialized Swarm cluster identity
   ansible.builtin.copy:
@@ -186,3 +186,16 @@
          swarm_joined_node.nodes[0].ManagerStatus is not defined)
     fail_msg: "Manager did not confirm the joined node's Ready/role/availability state."
   when: swarm_action == "join"
+
+- name: Record configured Swarm network addresses
+  ansible.builtin.copy:
+    content: >-
+      {{ {
+        'advertise_addr': netbird_ip,
+        'data_path_addr': netbird_ip
+      } | to_nice_json }}
+    dest: /etc/homeops/swarm-network-addresses.json
+    owner: root
+    group: root
+    mode: "0600"
+  when: swarm_local_state == "inactive"

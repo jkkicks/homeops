@@ -39,6 +39,7 @@ requirement_names = {
     "UFW_PUBLIC_SURFACE",
     "DOCKER_RUNTIME",
     "FOREIGN_SWARM_MEMBERSHIP",
+    "SWARM_DATA_PATH",
     "SWARM_NODE_STATE",
     "DOCO_CD_HEALTH",
     "JOIN_MANAGER_CONFIRMATION",
@@ -70,8 +71,12 @@ required_assertion_conditions = {
         'Spec.Role == verify_expected_swarm_role',
         'Spec.Availability == swarm_availability',
         'Status.Addr == netbird_ip',
-        "verify_swarm_data_path_peers",
-        "selectattr('IP', 'equalto', netbird_ip)",
+    ],
+    "SWARM_DATA_PATH": [
+        "verify_swarm_network_addresses_file.stat.exists",
+        "data_path_addr",
+        "== netbird_ip",
+        "12[0-7]",
     ],
 }
 for requirement_name, required_conditions in required_assertion_conditions.items():
@@ -88,6 +93,9 @@ for requirement_name, required_conditions in required_assertion_conditions.items
             fail(
                 f"REQUIREMENT {requirement_name} must assert {required_condition}"
             )
+
+if "Peers" in task_text or "verify_swarm_data_path_peers" in task_text:
+    fail("verify role must not infer the local data-path address from VXLAN peers")
 
 mutating_modules = {
     "ansible.builtin.apt",

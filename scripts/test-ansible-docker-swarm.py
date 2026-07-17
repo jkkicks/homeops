@@ -93,6 +93,17 @@ record_identity_copy = str(record_identity.get("ansible.builtin.copy", {}))
 if "Swarm.Cluster.ID" not in record_identity_copy:
     fail("Swarm init must persist the initialized cluster identity")
 
+record_addresses = task_named(swarm_tasks, "Record configured Swarm network addresses")
+record_addresses_copy = record_addresses.get("ansible.builtin.copy", {})
+record_addresses_text = str(record_addresses_copy)
+for requirement in ("advertise_addr", "data_path_addr", "netbird_ip"):
+    if requirement not in record_addresses_text:
+        fail(f"Swarm must persist configured {requirement}")
+if record_addresses_copy.get("mode") != "0600":
+    fail("persisted Swarm network addresses must be root-only")
+if "swarm_local_state == \"inactive\"" not in str(record_addresses.get("when")):
+    fail("Swarm network addresses must only be persisted for a fresh init or join")
+
 initialize = task_named(swarm_tasks, "Initialize Swarm on the init manager")
 if initialize.get("community.docker.docker_swarm", {}).get("state") != "present":
     fail("init manager must initialize through community.docker.docker_swarm")
