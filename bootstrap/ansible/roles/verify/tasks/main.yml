@@ -337,8 +337,8 @@
   check_mode: false
   when: inventory_hostname == groups["managers"][0]
 
-# Only recent logs: historical decrypt/auth failures from earlier polls must not
-# fail verify after the environment has recovered.
+# Recent logs only. Health is judged by the *latest* poll outcome so a greenfield
+# node must be happy now — older failed polls in the window do not count.
 - name: Inspect doco-cd logs
   ansible.builtin.command:
     argv:
@@ -347,12 +347,24 @@
       - logs
       - --raw
       - --since
-      - "{{ doco_cd_verify_log_since | default('10m') }}"
+      - "{{ doco_cd_verify_log_since | default('15m') }}"
       - doco-cd_doco-cd
   register: verify_doco_cd_logs
   changed_when: false
   failed_when: false
   check_mode: false
+  when:
+    - inventory_hostname == groups["managers"][0]
+    - verify_scope != "join"
+
+- name: Collect recent doco-cd poll job outcomes
+  ansible.builtin.set_fact:
+    verify_doco_cd_job_outcomes: >-
+      {{
+        (verify_doco_cd_logs.stdout_lines + verify_doco_cd_logs.stderr_lines)
+        | select('search', 'job completed (successfully|with errors)')
+        | list
+      }}
   when:
     - inventory_hostname == groups["managers"][0]
     - verify_scope != "join"
@@ -371,15 +383,13 @@
         (verify_doco_cd_replicas.stdout | trim | split('/'))[0] | int
         == (verify_doco_cd_replicas.stdout | trim | split('/'))[1] | int
       - verify_doco_cd_logs.rc == 0
+      - verify_doco_cd_job_outcomes | length > 0
       - >-
-        (verify_doco_cd_logs.stdout + "\n" + verify_doco_cd_logs.stderr)
-        is search(doco_cd_success_log_pattern, ignorecase=true)
-      - >-
-        (verify_doco_cd_logs.stdout + "\n" + verify_doco_cd_logs.stderr)
-        is not search(doco_cd_error_log_pattern, ignorecase=true)
+        verify_doco_cd_job_outcomes[-1]
+        is search('job completed successfully')
     fail_msg: >-
-      REQUIREMENT DOCO_CD_HEALTH failed: the doco-cd stack must have all desired
-      replicas running, a successful poll/clone log, and no auth/decrypt loop.
+      REQUIREMENT DOCO_CD_HEALTH failed: doco-cd must be fully replicated and the
+      latest poll job must have completed successfully (not with errors).
   when:
     - inventory_hostname == groups["managers"][0]
     - verify_scope != "join"

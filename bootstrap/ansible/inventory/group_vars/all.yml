@@ -5,12 +5,8 @@ swarm_availability: active
 swarm_labels: {}
 age_private_key_backup_confirmed: false
 verify_scope: greenfield
-# Real doco-cd lines look like "polling repository" / "job completed successfully".
-doco_cd_success_log_pattern: >-
-  job completed successfully|polling repository|poll configuration found|
-  (poll|clone).*(success|complete|ready)
-doco_cd_error_log_pattern: "(auth|decrypt).*(fail|error)|(fail|error).*(auth|decrypt)"
-doco_cd_verify_log_since: 10m
+# Latest poll outcome is the health signal (see verify DOCO_CD_HEALTH).
+doco_cd_verify_log_since: 15m
 
 bootstrap_user_name: ansible
 bootstrap_ssh_public_keys_dir: "{{ playbook_dir }}/../../../ssh-keys"
