@@ -32,3 +32,21 @@ ansible-galaxy install -r bootstrap/ansible/requirements.yml
 ```
 
 Run `make lint` before executing a playbook.
+
+## Bootstrap-window cutover
+
+The lockdown plays connect to each `new_nodes` host through its current
+`ansible_host`, create the permanent `bootstrap_user_name`, enroll Netbird,
+prove OpenSSH and Ansible connectivity at the discovered Netbird address, and
+only then enable UFW without a public SSH allowance.
+
+Ansible cannot persist changes to the YAML inventory. Immediately after each
+successful host cutover:
+
+1. Copy the discovered Netbird address into that host's `netbird_ip`.
+2. Change `ansible_host` to `{{ netbird_ip }}`.
+3. Remove the host from `new_nodes`.
+
+Do this before a second run: public TCP/22 is closed after the first successful
+cutover. The Docker, Swarm, doco-cd, and full verification roles remain deferred
+and are intentionally absent from the greenfield and join playbooks for now.

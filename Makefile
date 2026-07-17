@@ -25,6 +25,7 @@ verify:
 lint:
 	bash scripts/validate-layout.sh
 	bash scripts/test-ansible-skeleton.sh
+	python3 scripts/test-ansible-lockdown.py
 	ansible-lint bootstrap/ansible
 	ansible-playbook -i $(INVENTORY) --syntax-check $(PLAYBOOKS)/greenfield.yml
 	ansible-playbook -i $(INVENTORY) --syntax-check $(PLAYBOOKS)/join.yml

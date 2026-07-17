@@ -8,6 +8,3 @@
     - netbird
     - ufw
     - baseline
-    - docker
-    - swarm
-    - verify

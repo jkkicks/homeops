@@ -1,2 +1,53 @@
 ---
-# Host-mesh and public-service firewall policy is implemented in Task 2.
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Set default incoming policy
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: Set default outgoing policy
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+
+- name: Allow all inbound traffic on Netbird
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: wt0
+
+- name: Allow public HTTP
+  community.general.ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+
+- name: Allow public HTTPS
+  community.general.ufw:
+    rule: allow
+    port: "443"
+    proto: tcp
+
+- name: Remove public OpenSSH application rule
+  community.general.ufw:
+    rule: allow
+    name: OpenSSH
+    delete: true
+
+- name: Remove public TCP SSH rule
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+    delete: true
+
+- name: Enable UFW after mesh SSH proof
+  community.general.ufw:
+    state: enabled
+    logging: low

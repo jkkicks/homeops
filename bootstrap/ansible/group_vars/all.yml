@@ -4,6 +4,17 @@ netbird_environment_group: example-operators
 swarm_availability: active
 swarm_labels: {}
 
+bootstrap_user_name: ansible
+bootstrap_ssh_public_keys_dir: "{{ playbook_dir }}/../../../ssh-keys"
+netbird_setup_key_file: "{{ playbook_dir }}/../../../netbird_setup_key.txt"
+
+baseline_packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - systemd-timesyncd
+  - unattended-upgrades
+
 docker_packages:
   - name: docker-ce
     version: "5:29.6.1-1~ubuntu.24.04~noble"

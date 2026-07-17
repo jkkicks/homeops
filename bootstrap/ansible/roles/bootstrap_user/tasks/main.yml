@@ -1,2 +1,71 @@
 ---
-# The permanent automation user and SSH cutover are implemented in Task 2.
+- name: Find operator SSH public keys
+  ansible.builtin.set_fact:
+    bootstrap_ssh_public_key_files: >-
+      {{ query('ansible.builtin.fileglob', bootstrap_ssh_public_keys_dir + '/*.pub') }}
+
+- name: Require at least one operator SSH public key
+  ansible.builtin.assert:
+    that:
+      - bootstrap_ssh_public_key_files | length > 0
+    fail_msg: >-
+      No .pub files were found in {{ bootstrap_ssh_public_keys_dir }}.
+      Add an operator public key before starting the bootstrap window.
+
+- name: Create permanent automation user
+  ansible.builtin.user:
+    name: "{{ bootstrap_user_name }}"
+    groups:
+      - sudo
+    append: true
+    create_home: true
+    shell: /bin/bash
+    password_lock: true
+
+- name: Install operator SSH public keys
+  ansible.posix.authorized_key:
+    user: "{{ bootstrap_user_name }}"
+    key: "{{ lookup('ansible.builtin.file', item) }}"
+    state: present
+    exclusive: false
+  loop: "{{ bootstrap_ssh_public_key_files }}"
+  loop_control:
+    label: "{{ item | basename }}"
+
+- name: Grant passwordless sudo to automation user
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/90-{{ bootstrap_user_name }}"
+    content: "{{ bootstrap_user_name }} ALL=(ALL) NOPASSWD: ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Switch Ansible to permanent automation user
+  ansible.builtin.set_fact:
+    ansible_user: "{{ bootstrap_user_name }}"
+
+- name: Reset SSH connection for automation user
+  ansible.builtin.meta: reset_connection
+
+- name: Prove automation user key login
+  ansible.builtin.wait_for_connection:
+    connect_timeout: 10
+    sleep: 2
+    timeout: 60
+
+- name: Install key-only SSH policy
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/01-homeops-lockdown.conf
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+      PubkeyAuthentication yes
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Apply SSH lockdown
+
+- name: Apply SSH policy after successful key proof
+  ansible.builtin.meta: flush_handlers
