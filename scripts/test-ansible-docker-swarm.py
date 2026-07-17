@@ -79,6 +79,20 @@ foreign = task_named(swarm_tasks, "Reject membership in a different Swarm")
 if "ansible.builtin.assert" not in foreign or "swarm_existing_node.nodes" not in str(foreign):
     fail("swarm role must reject a node active in another Swarm")
 
+init_identity = task_named(swarm_tasks, "Require init manager cluster identity")
+init_identity_assert = str(init_identity.get("ansible.builtin.assert", {}))
+if (
+    "swarm_local_state" not in str(init_identity.get("when"))
+    or "swarm_cluster_identity" not in init_identity_assert
+    or "Swarm.Cluster.ID" not in init_identity_assert
+):
+    fail("active init manager must match its persisted Swarm cluster identity")
+
+record_identity = task_named(swarm_tasks, "Record initialized Swarm cluster identity")
+record_identity_copy = str(record_identity.get("ansible.builtin.copy", {}))
+if "Swarm.Cluster.ID" not in record_identity_copy:
+    fail("Swarm init must persist the initialized cluster identity")
+
 initialize = task_named(swarm_tasks, "Initialize Swarm on the init manager")
 if initialize.get("community.docker.docker_swarm", {}).get("state") != "present":
     fail("init manager must initialize through community.docker.docker_swarm")

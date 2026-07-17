@@ -19,6 +19,36 @@
     swarm_local_node_id: >-
       {{ swarm_local_host.host_info.Swarm.NodeID | default('') }}
 
+- name: Inspect persisted Swarm cluster identity
+  ansible.builtin.stat:
+    path: /etc/homeops/swarm-cluster-id
+  register: swarm_cluster_identity_file
+  when: swarm_action == "init"
+
+- name: Read persisted Swarm cluster identity
+  ansible.builtin.slurp:
+    src: /etc/homeops/swarm-cluster-id
+  register: swarm_cluster_identity
+  when:
+    - swarm_action == "init"
+    - swarm_cluster_identity_file.stat.exists
+
+- name: Require init manager cluster identity
+  ansible.builtin.assert:
+    that:
+      - swarm_local_host.host_info.Swarm.ControlAvailable | bool
+      - swarm_local_host.host_info.Swarm.Cluster.ID | default('') | length > 0
+      - swarm_cluster_identity_file.stat.exists
+      - >-
+        swarm_cluster_identity.content | default('') | b64decode | trim ==
+        swarm_local_host.host_info.Swarm.Cluster.ID
+    fail_msg: >-
+      The designated init manager is active in a different or unrecognized
+      Swarm; refusing to adopt it.
+  when:
+    - swarm_action == "init"
+    - swarm_local_state == "active"
+
 - name: Initialize Swarm on the init manager
   community.docker.docker_swarm:
     state: present
@@ -28,6 +58,38 @@
     - swarm_action == "init"
     - inventory_hostname == swarm_init_host
     - swarm_local_state == "inactive"
+
+- name: Inspect initialized Swarm manager
+  community.docker.docker_host_info:
+  register: swarm_initialized_host
+  when: swarm_action == "init"
+
+- name: Require initialized Swarm manager state
+  ansible.builtin.assert:
+    that:
+      - swarm_initialized_host.host_info.Swarm.LocalNodeState == "active"
+      - swarm_initialized_host.host_info.Swarm.ControlAvailable | bool
+      - swarm_initialized_host.host_info.Swarm.Cluster.ID | length > 0
+    fail_msg: "Swarm initialization did not produce an active manager."
+  when: swarm_action == "init"
+
+- name: Create homeops state directory
+  ansible.builtin.file:
+    path: /etc/homeops
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: swarm_action == "init"
+
+- name: Record initialized Swarm cluster identity
+  ansible.builtin.copy:
+    content: "{{ swarm_initialized_host.host_info.Swarm.Cluster.ID }}\n"
+    dest: /etc/homeops/swarm-cluster-id
+    owner: root
+    group: root
+    mode: "0600"
+  when: swarm_action == "init"
 
 - name: Inspect init manager Docker daemon
   community.docker.docker_host_info:
