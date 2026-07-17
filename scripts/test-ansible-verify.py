@@ -38,6 +38,7 @@ requirement_names = {
     "NETBIRD_CONNECTIVITY",
     "UFW_PUBLIC_SURFACE",
     "DOCKER_RUNTIME",
+    "FOREIGN_SWARM_MEMBERSHIP",
     "SWARM_NODE_STATE",
     "DOCO_CD_HEALTH",
     "JOIN_MANAGER_CONFIRMATION",
@@ -58,6 +59,33 @@ for requirement_name in sorted(requirement_names):
     assertion = requirement_task.get("ansible.builtin.assert", {})
     if f"REQUIREMENT {requirement_name} failed" not in assertion.get("fail_msg", ""):
         fail(f"REQUIREMENT {requirement_name} must have a specific failure message")
+
+required_assertion_conditions = {
+    "FOREIGN_SWARM_MEMBERSHIP": [
+        "verify_docker_host.host_info.Swarm.Cluster.ID",
+        "verify_manager_host.host_info.Swarm.Cluster.ID",
+        "== verify_manager_host.host_info.Swarm.Cluster.ID",
+    ],
+    "SWARM_NODE_STATE": [
+        'Spec.Role == verify_expected_swarm_role',
+        'Spec.Availability == swarm_availability',
+        'Status.Addr == netbird_ip',
+    ],
+}
+for requirement_name, required_conditions in required_assertion_conditions.items():
+    requirement_task = next(
+        task
+        for task in verify_tasks
+        if task.get("name") == f"REQUIREMENT {requirement_name}"
+    )
+    conditions = yaml.safe_dump(
+        requirement_task["ansible.builtin.assert"].get("that", [])
+    )
+    for required_condition in required_conditions:
+        if required_condition not in conditions:
+            fail(
+                f"REQUIREMENT {requirement_name} must assert {required_condition}"
+            )
 
 mutating_modules = {
     "ansible.builtin.apt",

@@ -98,6 +98,11 @@
   community.docker.docker_host_info:
   register: verify_docker_host
 
+- name: Inspect init manager Docker daemon
+  community.docker.docker_host_info:
+  delegate_to: "{{ groups['managers'][0] }}"
+  register: verify_manager_host
+
 - name: REQUIREMENT HOST_BASELINE
   ansible.builtin.assert:
     that:
@@ -201,6 +206,18 @@
   loop_control:
     label: "{{ item.name }}={{ item.version }}"
 
+- name: REQUIREMENT FOREIGN_SWARM_MEMBERSHIP
+  ansible.builtin.assert:
+    that:
+      - verify_docker_host.host_info.Swarm.Cluster.ID | default('') | length > 0
+      - verify_manager_host.host_info.Swarm.Cluster.ID | default('') | length > 0
+      - >-
+        verify_docker_host.host_info.Swarm.Cluster.ID ==
+        verify_manager_host.host_info.Swarm.Cluster.ID
+    fail_msg: >-
+      REQUIREMENT FOREIGN_SWARM_MEMBERSHIP failed: the host must be a member of
+      the init manager's Swarm, not a different Swarm.
+
 - name: Inspect this node from the init manager
   community.docker.docker_node_info:
     name: "{{ hostname }}"
@@ -214,9 +231,21 @@
       - verify_docker_host.host_info.Swarm.NodeAddr == netbird_ip
       - verify_manager_node.nodes | length == 1
       - verify_manager_node.nodes[0].Status.State == "ready"
+      - verify_manager_node.nodes[0].Status.Addr == netbird_ip
+      - verify_manager_node.nodes[0].Spec.Role == verify_expected_swarm_role
+      - verify_manager_node.nodes[0].Spec.Availability == swarm_availability
+      - >-
+        (verify_expected_swarm_role == "manager" and
+         verify_manager_node.nodes[0].ManagerStatus is defined) or
+        (verify_expected_swarm_role == "worker" and
+         verify_manager_node.nodes[0].ManagerStatus is not defined)
     fail_msg: >-
       REQUIREMENT SWARM_NODE_STATE failed: the host must be active in this
-      Swarm, advertise its Netbird IP, and be Ready according to the manager.
+      Swarm, advertise and use its Netbird IP for data-path traffic, and match
+      its declared Ready role and availability according to the manager.
+  vars:
+    verify_expected_swarm_role: >-
+      {{ 'manager' if inventory_hostname in groups['managers'] else 'worker' }}
 
 - name: REQUIREMENT JOIN_MANAGER_CONFIRMATION
   ansible.builtin.assert:
