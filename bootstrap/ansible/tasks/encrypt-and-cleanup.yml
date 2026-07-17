@@ -44,8 +44,7 @@
       - bootstrap/ansible/secrets/git_access_token.sops.yml
   args:
     chdir: "{{ playbook_dir }}/../../.."
-  when: staged_git_access_token.stat.exists
-  changed_when: true
+  changed_when: false
   no_log: true
 
 - name: Check staged Git access token ciphertext
@@ -60,7 +59,6 @@
   args:
     chdir: "{{ playbook_dir }}/../../.."
   register: staged_git_access_token_commit
-  when: staged_git_access_token.stat.exists
   changed_when: false
   failed_when: staged_git_access_token_commit.rc not in [0, 1]
 
@@ -76,10 +74,32 @@
       - bootstrap/ansible/secrets/git_access_token.sops.yml
   args:
     chdir: "{{ playbook_dir }}/../../.."
-  when: >-
-    staged_git_access_token.stat.exists and
-    staged_git_access_token_commit.rc == 1
+  when: staged_git_access_token_commit.rc == 1
   changed_when: true
+
+- name: Verify Git access token ciphertext is committed
+  ansible.builtin.command:
+    argv:
+      - git
+      - diff
+      - --quiet
+      - HEAD
+      - --
+      - bootstrap/ansible/secrets/git_access_token.sops.yml
+  args:
+    chdir: "{{ playbook_dir }}/../../.."
+  register: committed_git_access_token
+  changed_when: false
+  failed_when: committed_git_access_token.rc not in [0, 1]
+
+- name: Require committed Git access token ciphertext
+  ansible.builtin.assert:
+    that:
+      - committed_git_access_token.rc == 0
+    fail_msg: >-
+      Refusing plaintext cleanup because the Git access token ciphertext is
+      not committed.
+  no_log: true
 
 - name: Delete bootstrap-window plaintext
   ansible.builtin.file:

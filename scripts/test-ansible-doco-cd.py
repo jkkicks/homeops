@@ -115,8 +115,15 @@ ciphertext_path = "bootstrap/ansible/secrets/git_access_token.sops.yml"
 stage_ciphertext = task_named(cleanup_tasks, "Stage Git access token ciphertext")
 check_commit = task_named(cleanup_tasks, "Check staged Git access token ciphertext")
 commit_ciphertext = task_named(cleanup_tasks, "Commit Git access token ciphertext")
+verify_commit = task_named(cleanup_tasks, "Verify Git access token ciphertext is committed")
+require_commit = task_named(cleanup_tasks, "Require committed Git access token ciphertext")
 check_argv = check_commit.get("ansible.builtin.command", {}).get("argv", [])
 commit_argv = commit_ciphertext.get("ansible.builtin.command", {}).get("argv", [])
+verify_argv = verify_commit.get("ansible.builtin.command", {}).get("argv", [])
+if stage_ciphertext.get("when") is not None or check_commit.get("when") is not None:
+    fail("ciphertext staging and commit checks must run even when root plaintext is absent")
+if stage_ciphertext.get("changed_when") is not False:
+    fail("ciphertext staging must be idempotent when the committed file is unchanged")
 if not all(argument in check_argv for argument in ("diff", "--cached", "--quiet", ciphertext_path)):
     fail("cleanup must check whether the intended ciphertext path needs committing")
 if (
@@ -128,12 +135,22 @@ if not all(argument in commit_argv for argument in ("commit", "--only", cipherte
     fail("cleanup must commit only the intended Git token ciphertext path")
 if "-m" not in commit_argv or "rc == 1" not in str(commit_ciphertext.get("when")):
     fail("cleanup must commit changed ciphertext and skip already-clean runs")
+if "staged_git_access_token.stat.exists" in str(commit_ciphertext.get("when")):
+    fail("ciphertext commit must not depend on root plaintext still existing")
+if not all(argument in verify_argv for argument in ("diff", "--quiet", "HEAD", ciphertext_path)):
+    fail("cleanup must verify ciphertext matches HEAD before deleting plaintext")
+if require_commit.get("ansible.builtin.assert", {}).get("that") != [
+    "committed_git_access_token.rc == 0"
+]:
+    fail("cleanup must refuse plaintext deletion unless ciphertext is committed")
 
 task_names = [task.get("name") for task in cleanup_tasks]
 if not (
     task_names.index(stage_ciphertext.get("name"))
     < task_names.index(check_commit.get("name"))
     < task_names.index(commit_ciphertext.get("name"))
+    < task_names.index(verify_commit.get("name"))
+    < task_names.index(require_commit.get("name"))
     < task_names.index("Delete bootstrap-window plaintext")
 ):
     fail("ciphertext must be staged and committed before plaintext deletion")
