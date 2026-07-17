@@ -21,6 +21,32 @@
     - role: docker
       tags: [docker]
 
+- name: Record doco-cd version before Swarm join
+  hosts: "{{ groups['managers'][0] }}"
+  become: true
+  serial: 1
+  gather_facts: false
+  vars:
+    ansible_host: "{{ netbird_ip }}"
+    ansible_user: "{{ bootstrap_user_name }}"
+  tasks:
+    - name: Inspect doco-cd version before join
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - inspect
+          - --format
+          - "{{ '{{ .Version.Index }}' }}"
+          - doco-cd_doco-cd
+      register: verify_doco_cd_version_snapshot
+      changed_when: false
+
+    - name: Record doco-cd version for completion verification
+      ansible.builtin.set_fact:
+        verify_doco_cd_version_before: >-
+          {{ verify_doco_cd_version_snapshot.stdout | trim }}
+
 - name: Join new Swarm managers serially
   hosts: "managers:&new_nodes"
   become: true
@@ -44,3 +70,16 @@
   roles:
     - role: swarm
       tags: [swarm]
+
+- name: Verify join completion contract
+  hosts: "new_nodes:{{ groups['managers'][0] }}"
+  become: true
+  serial: 1
+  check_mode: true
+  vars:
+    ansible_host: "{{ netbird_ip }}"
+    ansible_user: "{{ bootstrap_user_name }}"
+    verify_scope: join
+  roles:
+    - role: verify
+      tags: [verify]

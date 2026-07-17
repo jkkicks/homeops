@@ -1,2 +1,314 @@
 ---
-# Completion-contract assertions are implemented in Task 5.
+- name: Gather installed package facts
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Inspect configured timezone
+  ansible.builtin.command:
+    argv:
+      - timedatectl
+      - show
+      - --property=Timezone
+      - --value
+  register: verify_timezone
+  changed_when: false
+  check_mode: false
+
+- name: Inspect automation user password state
+  ansible.builtin.command:
+    argv:
+      - passwd
+      - --status
+      - "{{ bootstrap_user_name }}"
+  register: verify_automation_password
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Inspect effective SSH daemon policy
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/sshd
+      - -T
+  register: verify_sshd_policy
+  changed_when: false
+  check_mode: false
+
+- name: Inspect automation user authorized keys
+  ansible.builtin.stat:
+    path: "/home/{{ bootstrap_user_name }}/.ssh/authorized_keys"
+  register: verify_authorized_keys
+
+- name: Read automation user sudo policy
+  ansible.builtin.slurp:
+    src: "/etc/sudoers.d/90-{{ bootstrap_user_name }}"
+  register: verify_sudo_policy
+
+- name: Inspect Netbird readiness
+  ansible.builtin.command:
+    argv:
+      - netbird
+      - status
+      - -C
+      - ready
+  register: verify_netbird_ready
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Inspect Netbird IPv4 address
+  ansible.builtin.command:
+    argv:
+      - netbird
+      - status
+      - --ipv4
+  register: verify_netbird_ipv4
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Inspect UFW policy
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - status
+      - verbose
+  register: verify_ufw
+  changed_when: false
+  check_mode: false
+
+- name: Inspect listening TCP sockets
+  ansible.builtin.command:
+    argv:
+      - ss
+      - -lnt
+  register: verify_tcp_listeners
+  changed_when: false
+  check_mode: false
+
+- name: Read Docker daemon policy
+  ansible.builtin.slurp:
+    src: /etc/docker/daemon.json
+  register: verify_docker_daemon_policy
+
+- name: Inspect local Docker daemon
+  community.docker.docker_host_info:
+  register: verify_docker_host
+
+- name: REQUIREMENT HOST_BASELINE
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == "Ubuntu"
+      - ansible_distribution_version == "24.04"
+      - ansible_hostname == hostname
+      - verify_timezone.stdout | trim == "UTC"
+      - "'unattended-upgrades' in ansible_facts.packages"
+      - "'systemd-timesyncd' in ansible_facts.packages"
+      - ansible_facts.services["unattended-upgrades.service"].state == "running"
+      - ansible_facts.services["systemd-timesyncd.service"].state == "running"
+    fail_msg: >-
+      REQUIREMENT HOST_BASELINE failed: Ubuntu 24.04, the declared hostname,
+      UTC, unattended upgrades, and timesyncd must all be active.
+
+- name: REQUIREMENT AUTOMATION_ACCESS
+  ansible.builtin.assert:
+    that:
+      - verify_automation_password.rc == 0
+      - verify_automation_password.stdout.split()[1] in ["L", "LK"]
+      - verify_authorized_keys.stat.exists
+      - verify_authorized_keys.stat.size | int > 0
+      - >-
+        bootstrap_user_name + " ALL=(ALL) NOPASSWD: ALL" in
+        (verify_sudo_policy.content | b64decode)
+      - "'passwordauthentication no' in verify_sshd_policy.stdout"
+      - "'kbdinteractiveauthentication no' in verify_sshd_policy.stdout"
+      - "'permitrootlogin no' in verify_sshd_policy.stdout"
+      - "'pubkeyauthentication yes' in verify_sshd_policy.stdout"
+    fail_msg: >-
+      REQUIREMENT AUTOMATION_ACCESS failed: the automation user must have a
+      locked password, authorized keys, passwordless sudo, and key-only SSH.
+
+- name: REQUIREMENT NETBIRD_CONNECTIVITY
+  ansible.builtin.assert:
+    that:
+      - verify_netbird_ready.rc == 0
+      - verify_netbird_ipv4.rc == 0
+      - verify_netbird_ipv4.stdout | trim == netbird_ip
+      - netbird_ip is match('^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$')
+      - >-
+        netbird_ip is match(
+          '^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|'
+          ~ '100\.(6[4-9]|[78][0-9]|9[0-9]|1[01][0-9]|12[0-7])\.)'
+        )
+      - ansible_host == netbird_ip
+      - ansible_user == bootstrap_user_name
+    fail_msg: >-
+      REQUIREMENT NETBIRD_CONNECTIVITY failed: Netbird must be ready with the
+      inventoried private IP, and verification must use automation-user mesh SSH.
+
+- name: REQUIREMENT UFW_PUBLIC_SURFACE
+  ansible.builtin.assert:
+    that:
+      - "'Status: active' in verify_ufw.stdout"
+      - "'Default: deny (incoming)' in verify_ufw.stdout"
+      - verify_ufw.stdout is search('(?m)^22/tcp\\s+ALLOW IN\\s+Anywhere') == false
+      - verify_ufw.stdout is search('(?m)^2377/tcp\\s+ALLOW IN\\s+Anywhere') == false
+      - verify_ufw.stdout is search('(?m)^7946/(tcp|udp)\\s+ALLOW IN\\s+Anywhere') == false
+      - verify_ufw.stdout is search('(?m)^4789/udp\\s+ALLOW IN\\s+Anywhere') == false
+      - verify_ufw.stdout is search('(?m)^80/tcp\\s+ALLOW IN\\s+Anywhere')
+      - verify_ufw.stdout is search('(?m)^443/tcp\\s+ALLOW IN\\s+Anywhere')
+      - verify_ufw.stdout is search('(?m)^Anywhere on wt0\\s+ALLOW IN')
+      - >-
+        verify_ufw.stdout_lines
+        | select('search', 'ALLOW IN')
+        | reject('search', '^(80/tcp|443/tcp|Anywhere on wt0)')
+        | list
+        | length == 0
+    fail_msg: >-
+      REQUIREMENT UFW_PUBLIC_SURFACE failed: inbound must default deny, public
+      access must be only HTTP/HTTPS, and SSH/Swarm access must remain on wt0.
+
+- name: REQUIREMENT DOCKER_RUNTIME
+  ansible.builtin.assert:
+    that:
+      - item.name in ansible_facts.packages
+      - >-
+        item.version in
+        (ansible_facts.packages[item.name] | map(attribute='version') | list)
+      - ansible_facts.services["docker.service"].state == "running"
+      - ansible_facts.services["docker.service"].status == "enabled"
+      - "'2375' not in verify_tcp_listeners.stdout"
+      - "'2376' not in verify_tcp_listeners.stdout"
+      - >-
+        (verify_docker_daemon_policy.content | b64decode | from_json)
+        ["log-driver"] == "json-file"
+      - >-
+        (verify_docker_daemon_policy.content | b64decode | from_json)
+        ["log-opts"]["max-size"] | length > 0
+      - >-
+        (verify_docker_daemon_policy.content | b64decode | from_json)
+        ["log-opts"]["max-file"] | int > 0
+      - >-
+        "hosts" not in
+        (verify_docker_daemon_policy.content | b64decode | from_json)
+    fail_msg: >-
+      REQUIREMENT DOCKER_RUNTIME failed: pinned Docker packages, enabled
+      service, closed TCP API, and log rotation are required.
+  loop: "{{ docker_packages }}"
+  loop_control:
+    label: "{{ item.name }}={{ item.version }}"
+
+- name: Inspect this node from the init manager
+  community.docker.docker_node_info:
+    name: "{{ hostname }}"
+  delegate_to: "{{ groups['managers'][0] }}"
+  register: verify_manager_node
+
+- name: REQUIREMENT SWARM_NODE_STATE
+  ansible.builtin.assert:
+    that:
+      - verify_docker_host.host_info.Swarm.LocalNodeState == "active"
+      - verify_docker_host.host_info.Swarm.NodeAddr == netbird_ip
+      - verify_manager_node.nodes | length == 1
+      - verify_manager_node.nodes[0].Status.State == "ready"
+    fail_msg: >-
+      REQUIREMENT SWARM_NODE_STATE failed: the host must be active in this
+      Swarm, advertise its Netbird IP, and be Ready according to the manager.
+
+- name: REQUIREMENT JOIN_MANAGER_CONFIRMATION
+  ansible.builtin.assert:
+    that:
+      - verify_manager_node.nodes | length == 1
+      - verify_manager_node.nodes[0].Status.State == "ready"
+      - verify_manager_node.nodes[0].Spec.Role == verify_expected_swarm_role
+      - verify_manager_node.nodes[0].Spec.Availability == swarm_availability
+      - verify_manager_node.nodes[0].Spec.Labels == swarm_labels
+      - >-
+        (verify_expected_swarm_role == "manager" and
+         verify_manager_node.nodes[0].ManagerStatus is defined) or
+        (verify_expected_swarm_role == "worker" and
+         verify_manager_node.nodes[0].ManagerStatus is not defined)
+    fail_msg: >-
+      REQUIREMENT JOIN_MANAGER_CONFIRMATION failed: the manager must report the
+      declared role, Ready state, availability, and labels for the joined node.
+  vars:
+    verify_expected_swarm_role: >-
+      {{ 'manager' if inventory_hostname in groups['managers'] else 'worker' }}
+  when: verify_scope == "join"
+
+- name: Inspect doco-cd service
+  ansible.builtin.command:
+    argv:
+      - docker
+      - service
+      - inspect
+      - --status
+      - doco-cd_doco-cd
+  register: verify_doco_cd_service
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: inventory_hostname == groups["managers"][0]
+
+- name: Inspect doco-cd logs
+  ansible.builtin.command:
+    argv:
+      - docker
+      - service
+      - logs
+      - --raw
+      - --tail
+      - "200"
+      - doco-cd_doco-cd
+  register: verify_doco_cd_logs
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - inventory_hostname == groups["managers"][0]
+    - verify_scope != "join"
+
+- name: REQUIREMENT DOCO_CD_HEALTH
+  ansible.builtin.assert:
+    that:
+      - verify_doco_cd_service.rc == 0
+      - verify_doco_cd_service.stdout | from_json | length == 1
+      - >-
+        (verify_doco_cd_service.stdout | from_json)[0]
+        ["Spec"]["Mode"]["Replicated"]["Replicas"] | int > 0
+      - >-
+        (verify_doco_cd_service.stdout | from_json)[0]
+        ["ServiceStatus"]["RunningTasks"] | int ==
+        (verify_doco_cd_service.stdout | from_json)[0]
+        ["Spec"]["Mode"]["Replicated"]["Replicas"] | int
+      - verify_doco_cd_logs.rc == 0
+      - >-
+        (verify_doco_cd_logs.stdout + "\n" + verify_doco_cd_logs.stderr)
+        is search(doco_cd_success_log_pattern, ignorecase=true)
+      - >-
+        (verify_doco_cd_logs.stdout + "\n" + verify_doco_cd_logs.stderr)
+        is not search(doco_cd_error_log_pattern, ignorecase=true)
+    fail_msg: >-
+      REQUIREMENT DOCO_CD_HEALTH failed: the doco-cd stack must have all desired
+      replicas running, a successful poll/clone log, and no auth/decrypt loop.
+  when:
+    - inventory_hostname == groups["managers"][0]
+    - verify_scope != "join"
+
+- name: REQUIREMENT JOIN_DOCO_CD_NOT_REDEPLOYED
+  ansible.builtin.assert:
+    that:
+      - verify_doco_cd_service.rc == 0
+      - >-
+        (verify_doco_cd_service.stdout | from_json)[0]
+        ["Version"]["Index"] | int ==
+        hostvars[groups["managers"][0]].verify_doco_cd_version_before | int
+    fail_msg: >-
+      REQUIREMENT JOIN_DOCO_CD_NOT_REDEPLOYED failed: the doco-cd service
+      version changed during join.
+  when:
+    - verify_scope == "join"
+    - inventory_hostname == groups["managers"][0]

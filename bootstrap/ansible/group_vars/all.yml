@@ -4,6 +4,9 @@ netbird_environment_group: example-operators
 swarm_availability: active
 swarm_labels: {}
 age_private_key_backup_confirmed: false
+verify_scope: greenfield
+doco_cd_success_log_pattern: "(poll|clone|repository).*(success|complete|ready)|success.*(poll|clone)"
+doco_cd_error_log_pattern: "(auth|decrypt).*(fail|error)|(fail|error).*(auth|decrypt)"
 
 bootstrap_user_name: ansible
 bootstrap_ssh_public_keys_dir: "{{ playbook_dir }}/../../../ssh-keys"

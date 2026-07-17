@@ -29,6 +29,7 @@ lint:
 	python3 scripts/test-ansible-lockdown.py
 	python3 scripts/test-ansible-docker-swarm.py
 	python3 scripts/test-ansible-doco-cd.py
+	python3 scripts/test-ansible-verify.py
 	ansible-lint bootstrap/ansible
 	ansible-playbook -i $(INVENTORY) --syntax-check $(PLAYBOOKS)/greenfield.yml
 	ansible-playbook -i $(INVENTORY) --syntax-check $(PLAYBOOKS)/join.yml

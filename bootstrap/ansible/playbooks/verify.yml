@@ -1,7 +1,28 @@
 ---
+- name: Require mesh addresses for standalone verification
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+  check_mode: true
+  tasks:
+    - name: REQUIREMENT NETBIRD_CONNECTIVITY inventory addresses
+      ansible.builtin.assert:
+        that:
+          - hostvars[item].netbird_ip is defined
+          - hostvars[item].netbird_ip | length > 0
+        fail_msg: >-
+          REQUIREMENT NETBIRD_CONNECTIVITY failed: {{ item }} needs netbird_ip
+          in inventory before standalone verification.
+      loop: "{{ groups['all'] }}"
+
 - name: Verify the environment
   hosts: all
   become: true
   check_mode: true
+  vars:
+    ansible_host: "{{ netbird_ip }}"
+    ansible_user: "{{ bootstrap_user_name }}"
   roles:
-    - verify
+    - role: verify
+      tags: [verify]

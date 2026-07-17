@@ -83,3 +83,16 @@
     - name: Encrypt and clean up operator secrets
       ansible.builtin.include_tasks: ../tasks/encrypt-and-cleanup.yml
       tags: [doco_cd, secrets]
+
+- name: Verify greenfield completion contract
+  hosts: all
+  become: true
+  serial: 1
+  check_mode: true
+  vars:
+    ansible_host: "{{ netbird_ip }}"
+    ansible_user: "{{ bootstrap_user_name }}"
+    verify_scope: greenfield
+  roles:
+    - role: verify
+      tags: [verify]
