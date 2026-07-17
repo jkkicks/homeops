@@ -3,6 +3,14 @@
   hosts: new_nodes
   become: true
   serial: 1
+  pre_tasks:
+    - name: Require explicit cold-backup confirmation
+      ansible.builtin.assert:
+        that:
+          - age_private_key_backup_confirmed | bool
+        fail_msg: >-
+          Set AGE_BACKUP_CONFIRMED=yes only after storing the age private key
+          in a cold offline backup.
   roles:
     - role: bootstrap_user
       tags: [lockdown]
@@ -56,3 +64,22 @@
   roles:
     - role: swarm
       tags: [swarm]
+
+- name: Bootstrap doco-cd on the init manager
+  hosts: "{{ groups['managers'][0] }}"
+  become: true
+  serial: 1
+  roles:
+    - role: doco_cd
+      tags: [doco_cd]
+
+- name: Retain long-lived secrets and remove bootstrap plaintext
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+  serial: 1
+  tasks:
+    - name: Encrypt and clean up operator secrets
+      ansible.builtin.include_tasks: ../tasks/encrypt-and-cleanup.yml
+      tags: [doco_cd, secrets]

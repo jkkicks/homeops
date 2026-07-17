@@ -14,7 +14,8 @@ age-key:
 	@chmod 600 sops_age_key.txt
 
 greenfield:
-	ansible-playbook -i $(INVENTORY) $(PLAYBOOKS)/greenfield.yml
+	@test "$$AGE_BACKUP_CONFIRMED" = "yes" || { echo "Set AGE_BACKUP_CONFIRMED=yes after backing up sops_age_key.txt" >&2; exit 1; }
+	ansible-playbook -i $(INVENTORY) $(PLAYBOOKS)/greenfield.yml -e age_private_key_backup_confirmed=true
 
 join:
 	ansible-playbook -i $(INVENTORY) $(PLAYBOOKS)/join.yml
@@ -27,6 +28,7 @@ lint:
 	bash scripts/test-ansible-skeleton.sh
 	python3 scripts/test-ansible-lockdown.py
 	python3 scripts/test-ansible-docker-swarm.py
+	python3 scripts/test-ansible-doco-cd.py
 	ansible-lint bootstrap/ansible
 	ansible-playbook -i $(INVENTORY) --syntax-check $(PLAYBOOKS)/greenfield.yml
 	ansible-playbook -i $(INVENTORY) --syntax-check $(PLAYBOOKS)/join.yml

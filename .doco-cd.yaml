@@ -1,11 +1,4 @@
-# Deployment 1: keep doco-cd itself in sync from bootstrap/
-name: doco-cd
-working_dir: bootstrap/doco-cd
-compose_files:
-  - compose.yaml
-remove_orphans: true
----
-# Every apps/<dir> with a compose file becomes a stack
+# Every apps/<dir> with a compose file becomes a stack, including doco-cd.
 name: apps
 working_dir: apps
 auto_discovery:

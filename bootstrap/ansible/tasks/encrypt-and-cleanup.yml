@@ -1,0 +1,61 @@
+---
+- name: Check staged Git access token for retention
+  ansible.builtin.stat:
+    path: "{{ doco_cd_git_token_file }}"
+  register: staged_git_access_token
+  no_log: true
+
+- name: Encrypt Git access token with SOPS
+  ansible.builtin.command:
+    argv:
+      - sops
+      - encrypt
+      - --input-type
+      - binary
+      - --output-type
+      - yaml
+      - --output
+      - "{{ doco_cd_git_token_sops_file }}"
+      - "{{ doco_cd_git_token_file }}"
+  when: staged_git_access_token.stat.exists
+  no_log: true
+
+- name: Check retained Git access token ciphertext
+  ansible.builtin.stat:
+    path: "{{ doco_cd_git_token_sops_file }}"
+  register: retained_git_access_token
+  no_log: true
+
+- name: Require retained Git access token ciphertext
+  ansible.builtin.assert:
+    that:
+      - retained_git_access_token.stat.exists
+    fail_msg: >-
+      Refusing plaintext cleanup because the Git access token ciphertext is
+      missing.
+  no_log: true
+
+- name: Stage Git access token ciphertext
+  ansible.builtin.command:
+    argv:
+      - git
+      - add
+      - --
+      - bootstrap/ansible/secrets/git_access_token.sops.yml
+  args:
+    chdir: "{{ playbook_dir }}/../../.."
+  when: staged_git_access_token.stat.exists
+  changed_when: true
+  no_log: true
+
+- name: Delete bootstrap-window plaintext
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/../../../{{ item }}"
+    state: absent
+  loop:
+    - git_access_token.txt
+    - netbird_setup_key.txt
+    - sops_age_key.txt
+    - bootstrap_ssh_private_key
+    - bootstrap_ssh_password.txt
+  no_log: true

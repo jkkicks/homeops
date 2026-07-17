@@ -1,2 +1,117 @@
 ---
-# Doco-cd deployment and SOPS secret handling are implemented in Task 4.
+- name: Inspect bootstrap Docker secrets
+  ansible.builtin.command:
+    argv:
+      - docker
+      - secret
+      - inspect
+      - "{{ item }}"
+  loop:
+    - sops_age_key
+    - git_access_token
+  register: doco_cd_secret_inspect
+  changed_when: false
+  failed_when: false
+
+- name: Check staged age private key
+  ansible.builtin.stat:
+    path: "{{ doco_cd_age_key_file }}"
+  delegate_to: localhost
+  become: false
+  register: doco_cd_age_key_source
+  no_log: true
+
+- name: Require staged age key when Docker secret is missing
+  ansible.builtin.assert:
+    that:
+      - doco_cd_age_key_source.stat.exists
+    fail_msg: >-
+      sops_age_key Docker secret is missing; restore sops_age_key.txt from the
+      cold offline backup before rerunning greenfield.
+  when: doco_cd_secret_inspect.results[0].rc != 0
+  no_log: true
+
+- name: Create missing age Docker secret
+  community.docker.docker_secret:
+    name: sops_age_key
+    data: "{{ lookup('ansible.builtin.file', doco_cd_age_key_file) }}"
+    state: present
+  when: doco_cd_secret_inspect.results[0].rc != 0
+  no_log: true
+
+- name: Check staged Git access token
+  ansible.builtin.stat:
+    path: "{{ doco_cd_git_token_file }}"
+  delegate_to: localhost
+  become: false
+  register: doco_cd_git_token_source
+  no_log: true
+
+- name: Read staged Git access token
+  ansible.builtin.set_fact:
+    doco_cd_git_access_token: >-
+      {{ lookup('ansible.builtin.file', doco_cd_git_token_file) }}
+  when:
+    - doco_cd_secret_inspect.results[1].rc != 0
+    - doco_cd_git_token_source.stat.exists
+  no_log: true
+
+- name: Decrypt retained Git access token
+  ansible.builtin.command:
+    argv:
+      - sops
+      - decrypt
+      - --output-type
+      - binary
+      - "{{ doco_cd_git_token_sops_file }}"
+  delegate_to: localhost
+  become: false
+  register: doco_cd_git_token_decrypted
+  changed_when: false
+  when:
+    - doco_cd_secret_inspect.results[1].rc != 0
+    - not doco_cd_git_token_source.stat.exists
+  no_log: true
+
+- name: Use retained Git access token
+  ansible.builtin.set_fact:
+    doco_cd_git_access_token: "{{ doco_cd_git_token_decrypted.stdout }}"
+  when:
+    - doco_cd_secret_inspect.results[1].rc != 0
+    - not doco_cd_git_token_source.stat.exists
+  no_log: true
+
+- name: Create missing Git access token Docker secret
+  community.docker.docker_secret:
+    name: git_access_token
+    data: "{{ doco_cd_git_access_token }}"
+    state: present
+  when: doco_cd_secret_inspect.results[1].rc != 0
+  no_log: true
+
+- name: Inspect doco-cd stacks
+  community.docker.docker_stack_info:
+  register: doco_cd_stack_info
+
+- name: Stage canonical doco-cd application files
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../../apps/doco-cd/"
+    dest: /opt/doco-cd/
+    mode: preserve
+  when: >-
+    doco_cd_stack_info.results
+    | selectattr('name', 'equalto', 'doco-cd')
+    | list
+    | length == 0
+
+- name: Deploy missing doco-cd stack
+  community.docker.docker_stack:
+    name: doco-cd
+    state: present
+    compose:
+      - /opt/doco-cd/compose.yaml
+  when: >-
+    doco_cd_stack_info.results
+    | selectattr('name', 'equalto', 'doco-cd')
+    | list
+    | length == 0

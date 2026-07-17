@@ -3,10 +3,15 @@ timezone: UTC
 netbird_environment_group: example-operators
 swarm_availability: active
 swarm_labels: {}
+age_private_key_backup_confirmed: false
 
 bootstrap_user_name: ansible
 bootstrap_ssh_public_keys_dir: "{{ playbook_dir }}/../../../ssh-keys"
 netbird_setup_key_file: "{{ playbook_dir }}/../../../netbird_setup_key.txt"
+doco_cd_age_key_file: "{{ playbook_dir }}/../../../sops_age_key.txt"
+doco_cd_git_token_file: "{{ playbook_dir }}/../../../git_access_token.txt"
+doco_cd_git_token_sops_file: >-
+  {{ playbook_dir }}/../secrets/git_access_token.sops.yml
 
 baseline_packages:
   - ca-certificates
