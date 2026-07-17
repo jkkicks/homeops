@@ -70,6 +70,8 @@ required_assertion_conditions = {
         'Spec.Role == verify_expected_swarm_role',
         'Spec.Availability == swarm_availability',
         'Status.Addr == netbird_ip',
+        "verify_swarm_data_path_peers",
+        "selectattr('IP', 'equalto', netbird_ip)",
     ],
 }
 for requirement_name, required_conditions in required_assertion_conditions.items():

@@ -224,11 +224,30 @@
   delegate_to: "{{ groups['managers'][0] }}"
   register: verify_manager_node
 
+- name: Inspect Swarm ingress data-path peers
+  ansible.builtin.command:
+    argv:
+      - docker
+      - network
+      - inspect
+      - --format
+      - "{{ '{{ json .Peers }}' }}"
+      - ingress
+  register: verify_swarm_data_path_peers
+  changed_when: false
+  check_mode: false
+
 - name: REQUIREMENT SWARM_NODE_STATE
   ansible.builtin.assert:
     that:
       - verify_docker_host.host_info.Swarm.LocalNodeState == "active"
       - verify_docker_host.host_info.Swarm.NodeAddr == netbird_ip
+      - >-
+        verify_swarm_data_path_peers.stdout
+        | from_json
+        | selectattr('IP', 'equalto', netbird_ip)
+        | list
+        | length == 1
       - verify_manager_node.nodes | length == 1
       - verify_manager_node.nodes[0].Status.State == "ready"
       - verify_manager_node.nodes[0].Status.Addr == netbird_ip
