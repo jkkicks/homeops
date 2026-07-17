@@ -337,6 +337,8 @@
   check_mode: false
   when: inventory_hostname == groups["managers"][0]
 
+# Only recent logs: historical decrypt/auth failures from earlier polls must not
+# fail verify after the environment has recovered.
 - name: Inspect doco-cd logs
   ansible.builtin.command:
     argv:
@@ -344,8 +346,8 @@
       - service
       - logs
       - --raw
-      - --tail
-      - "200"
+      - --since
+      - "{{ doco_cd_verify_log_since | default('10m') }}"
       - doco-cd_doco-cd
   register: verify_doco_cd_logs
   changed_when: false
