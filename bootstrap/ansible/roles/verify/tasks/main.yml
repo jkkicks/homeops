@@ -337,8 +337,8 @@
   check_mode: false
   when: inventory_hostname == groups["managers"][0]
 
-# Recent logs only. Health is judged by the *latest* poll outcome so a greenfield
-# node must be happy now — older failed polls in the window do not count.
+# Recent logs only. Health is the chronologically latest poll outcome — Swarm
+# multiplexes task logs out of line order, so we sort by the JSON time field.
 - name: Inspect doco-cd logs
   ansible.builtin.command:
     argv:
@@ -358,16 +358,39 @@
     - verify_scope != "join"
 
 - name: Collect recent doco-cd poll job outcomes
-  ansible.builtin.set_fact:
-    verify_doco_cd_job_outcomes: >-
-      {{
-        (verify_doco_cd_logs.stdout_lines + verify_doco_cd_logs.stderr_lines)
-        | select('search', 'job completed (successfully|with errors)')
-        | list
-      }}
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        import json
+        import sys
+
+        outcomes = []
+        for line in sys.stdin.read().splitlines():
+            line = line.strip()
+            if not line.startswith("{"):
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            msg = row.get("msg", "")
+            if msg in (
+                "job completed successfully",
+                "job completed with errors",
+            ):
+                outcomes.append((row.get("time", ""), msg))
+        outcomes.sort(key=lambda item: item[0])
+        sys.stdout.write("\n".join(msg for _, msg in outcomes))
+    stdin: "{{ verify_doco_cd_logs.stdout }}\n{{ verify_doco_cd_logs.stderr }}"
+  register: verify_doco_cd_job_outcomes
+  changed_when: false
+  check_mode: false
   when:
     - inventory_hostname == groups["managers"][0]
     - verify_scope != "join"
+    - verify_doco_cd_logs.rc == 0
 
 - name: REQUIREMENT DOCO_CD_HEALTH
   ansible.builtin.assert:
@@ -383,10 +406,11 @@
         (verify_doco_cd_replicas.stdout | trim | split('/'))[0] | int
         == (verify_doco_cd_replicas.stdout | trim | split('/'))[1] | int
       - verify_doco_cd_logs.rc == 0
-      - verify_doco_cd_job_outcomes | length > 0
+      - verify_doco_cd_job_outcomes.rc == 0
+      - verify_doco_cd_job_outcomes.stdout_lines | length > 0
       - >-
-        verify_doco_cd_job_outcomes[-1]
-        is search('job completed successfully')
+        verify_doco_cd_job_outcomes.stdout_lines[-1]
+        == "job completed successfully"
     fail_msg: >-
       REQUIREMENT DOCO_CD_HEALTH failed: doco-cd must be fully replicated and the
       latest poll job must have completed successfully (not with errors).
