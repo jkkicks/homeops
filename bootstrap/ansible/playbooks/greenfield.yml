@@ -4,7 +4,55 @@
   become: true
   serial: 1
   roles:
-    - bootstrap_user
-    - netbird
-    - ufw
-    - baseline
+    - role: bootstrap_user
+      tags: [lockdown]
+    - role: netbird
+      tags: [lockdown, netbird]
+    - role: ufw
+      tags: [lockdown]
+    - role: baseline
+      tags: [lockdown]
+
+- name: Install Docker on new hosts serially
+  hosts: new_nodes
+  become: true
+  serial: 1
+  roles:
+    - role: docker
+      tags: [docker]
+
+- name: Initialize the first Swarm manager alone
+  hosts: "{{ groups['managers'][0] }}"
+  become: true
+  serial: 1
+  vars:
+    swarm_action: init
+    swarm_expected_role: manager
+    swarm_init_host: "{{ groups['managers'][0] }}"
+  roles:
+    - role: swarm
+      tags: [swarm]
+
+- name: Join additional Swarm managers serially
+  hosts: "managers:!{{ groups['managers'][0] }}"
+  become: true
+  serial: 1
+  vars:
+    swarm_action: join
+    swarm_expected_role: manager
+    swarm_init_host: "{{ groups['managers'][0] }}"
+  roles:
+    - role: swarm
+      tags: [swarm]
+
+- name: Join Swarm workers serially
+  hosts: workers
+  become: true
+  serial: 1
+  vars:
+    swarm_action: join
+    swarm_expected_role: worker
+    swarm_init_host: "{{ groups['managers'][0] }}"
+  roles:
+    - role: swarm
+      tags: [swarm]

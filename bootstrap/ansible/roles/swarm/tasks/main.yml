@@ -1,2 +1,126 @@
 ---
-# Swarm initialization and joining over the host mesh are implemented in Task 3.
+- name: Require valid Swarm role inputs
+  ansible.builtin.assert:
+    that:
+      - swarm_action in ["init", "join"]
+      - swarm_expected_role in ["manager", "worker"]
+      - swarm_init_host in groups["managers"]
+      - netbird_ip is defined
+    fail_msg: "Swarm requires a valid action, role, init manager, and Netbird IP."
+
+- name: Inspect local Docker daemon
+  community.docker.docker_host_info:
+  register: swarm_local_host
+
+- name: Record local Swarm state
+  ansible.builtin.set_fact:
+    swarm_local_state: >-
+      {{ swarm_local_host.host_info.Swarm.LocalNodeState | default('inactive') }}
+    swarm_local_node_id: >-
+      {{ swarm_local_host.host_info.Swarm.NodeID | default('') }}
+
+- name: Initialize Swarm on the init manager
+  community.docker.docker_swarm:
+    state: present
+    advertise_addr: "{{ netbird_ip }}"
+    data_path_addr: "{{ netbird_ip }}"
+  when:
+    - swarm_action == "init"
+    - inventory_hostname == swarm_init_host
+    - swarm_local_state == "inactive"
+
+- name: Inspect init manager Docker daemon
+  community.docker.docker_host_info:
+  delegate_to: "{{ swarm_init_host }}"
+  register: swarm_manager_host
+  when: swarm_action == "join"
+
+- name: Require an active init manager
+  ansible.builtin.assert:
+    that:
+      - swarm_manager_host.host_info.Swarm.LocalNodeState == "active"
+      - swarm_manager_host.host_info.Swarm.ControlAvailable | bool
+      - swarm_manager_host.host_info.Swarm.Cluster.ID | length > 0
+    fail_msg: "The init manager is not an active Swarm manager."
+  when: swarm_action == "join"
+
+- name: Look up active node on the init manager
+  community.docker.docker_node_info:
+    name: "{{ swarm_local_node_id }}"
+  delegate_to: "{{ swarm_init_host }}"
+  register: swarm_existing_node
+  when:
+    - swarm_action == "join"
+    - swarm_local_state == "active"
+
+- name: Reject membership in a different Swarm
+  ansible.builtin.assert:
+    that:
+      - >-
+        swarm_local_state == "inactive" or
+        swarm_existing_node.nodes | length == 1
+    fail_msg: "This host is already a member of a different Swarm."
+  when: swarm_action == "join"
+
+- name: Fetch runtime Swarm join tokens
+  community.docker.docker_swarm_info:
+  delegate_to: "{{ swarm_init_host }}"
+  register: swarm_runtime_info
+  when:
+    - swarm_action == "join"
+    - swarm_local_state == "inactive"
+  no_log: true
+
+- name: Join node to Swarm over Netbird
+  community.docker.docker_swarm:
+    state: join
+    advertise_addr: "{{ netbird_ip }}"
+    data_path_addr: "{{ netbird_ip }}"
+    remote_addrs:
+      - "{{ hostvars[swarm_init_host].netbird_ip }}:2377"
+    join_token: >-
+      {{ swarm_runtime_info.swarm_facts.JoinTokens.Manager
+         if swarm_expected_role == "manager"
+         else swarm_runtime_info.swarm_facts.JoinTokens.Worker }}
+  when:
+    - swarm_action == "join"
+    - swarm_local_state == "inactive"
+  no_log: true
+
+- name: Apply declared Swarm node policy
+  community.docker.docker_node:
+    hostname: "{{ hostname }}"
+    role: "{{ swarm_expected_role }}"
+    availability: "{{ swarm_availability }}"
+    labels: "{{ swarm_labels }}"
+    labels_state: replace
+  delegate_to: "{{ swarm_init_host }}"
+  when: swarm_action == "join"
+
+- name: Confirm joined node from a manager
+  community.docker.docker_node_info:
+    name: "{{ hostname }}"
+  delegate_to: "{{ swarm_init_host }}"
+  register: swarm_joined_node
+  when: swarm_action == "join"
+  retries: 12
+  delay: 5
+  until:
+    - swarm_joined_node.nodes | length == 1
+    - swarm_joined_node.nodes[0].Status.State == "ready"
+
+- name: Require expected Swarm node state
+  ansible.builtin.assert:
+    that:
+      - swarm_joined_node.nodes | length == 1
+      - swarm_joined_node.nodes[0].Status.State == "ready"
+      - swarm_joined_node.nodes[0].Spec.Role == swarm_expected_role
+      - swarm_joined_node.nodes[0].Spec.Availability == swarm_availability
+      - swarm_joined_node.nodes[0].Spec.Labels == swarm_labels
+      - >-
+        (swarm_expected_role == "manager" and
+         swarm_joined_node.nodes[0].ManagerStatus is defined) or
+        (swarm_expected_role == "worker" and
+         swarm_joined_node.nodes[0].ManagerStatus is not defined)
+    fail_msg: "Manager did not confirm the joined node's Ready/role/availability state."
+  when: swarm_action == "join"

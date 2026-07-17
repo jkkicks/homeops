@@ -1,13 +1,13 @@
 ---
 - name: Find operator SSH public keys
   ansible.builtin.set_fact:
-    bootstrap_ssh_public_key_files: >-
+    bootstrap_user_ssh_public_key_files: >-
       {{ query('ansible.builtin.fileglob', bootstrap_ssh_public_keys_dir + '/*.pub') }}
 
 - name: Require at least one operator SSH public key
   ansible.builtin.assert:
     that:
-      - bootstrap_ssh_public_key_files | length > 0
+      - bootstrap_user_ssh_public_key_files | length > 0
     fail_msg: >-
       No .pub files were found in {{ bootstrap_ssh_public_keys_dir }}.
       Add an operator public key before starting the bootstrap window.
@@ -28,7 +28,7 @@
     key: "{{ lookup('ansible.builtin.file', item) }}"
     state: present
     exclusive: false
-  loop: "{{ bootstrap_ssh_public_key_files }}"
+  loop: "{{ bootstrap_user_ssh_public_key_files }}"
   loop_control:
     label: "{{ item | basename }}"
 

@@ -113,9 +113,13 @@ if task_module(task_named(baseline_tasks, "Install practical baseline packages")
 
 for playbook in ("playbooks/greenfield.yml", "playbooks/join.yml"):
     plays = load(playbook)
-    if len(plays) != 1 or plays[0].get("serial") != 1:
+    if not plays or plays[0].get("serial") != 1:
         fail(f"{playbook} must lock down new_nodes serially")
-    if plays[0].get("roles") != ["bootstrap_user", "netbird", "ufw", "baseline"]:
-        fail(f"{playbook} must include only implemented lockdown roles")
+    lockdown_roles = [
+        role if isinstance(role, str) else role.get("role")
+        for role in plays[0].get("roles", [])
+    ]
+    if lockdown_roles != ["bootstrap_user", "netbird", "ufw", "baseline"]:
+        fail(f"{playbook} must run all lockdown roles before later phases")
 
 print("OK: Ansible lockdown contracts are complete")
