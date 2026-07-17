@@ -1,0 +1,7 @@
+---
+- name: Verify the environment
+  hosts: all
+  become: true
+  check_mode: true
+  roles:
+    - verify

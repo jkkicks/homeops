@@ -1,0 +1,14 @@
+---
+- name: Greenfield bootstrap new hosts
+  hosts: new_nodes
+  become: true
+  serial: 1
+  roles:
+    - bootstrap_user
+    - netbird
+    - ufw
+    - baseline
+    - docker
+    - swarm
+    - doco_cd
+    - verify

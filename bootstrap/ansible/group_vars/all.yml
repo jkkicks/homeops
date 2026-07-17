@@ -1,0 +1,17 @@
+---
+timezone: UTC
+netbird_environment_group: example-operators
+swarm_availability: active
+swarm_labels: {}
+
+docker_packages:
+  - name: docker-ce
+    version: "5:29.6.1-1~ubuntu.24.04~noble"
+  - name: docker-ce-cli
+    version: "5:29.6.1-1~ubuntu.24.04~noble"
+  - name: containerd.io
+    version: "2.2.5-1~ubuntu.24.04~noble"
+  - name: docker-buildx-plugin
+    version: "0.35.0-1~ubuntu.24.04~noble"
+  - name: docker-compose-plugin
+    version: "5.3.1-1~ubuntu.24.04~noble"

@@ -1,0 +1,2 @@
+Copy the bootstrap-window SSH private key to bootstrap_ssh_private_key.
+Never put a real private key in this tracked example file.

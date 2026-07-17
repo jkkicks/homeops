@@ -3,7 +3,7 @@
 .cursor/
 
 # Never commit decrypt material or local plaintext
-sops_age_key.txt
+/sops_age_key.txt
 age-key.txt
 *.agekey
 **/secrets/*.plain.*
@@ -11,4 +11,11 @@ age-key.txt
 **/*.dec.yaml
 **/*.dec.env
 secrets/commands.txt
-git_access_token.txt
+/git_access_token.txt
+/netbird_setup_key.txt
+/bootstrap_ssh_private_key
+/bootstrap_ssh_password.txt
+
+# Committed ciphertext is desired state
+!bootstrap/ansible/secrets/*.sops.yml
+!bootstrap/ansible/secrets/*.enc.*

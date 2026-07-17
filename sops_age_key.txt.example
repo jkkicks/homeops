@@ -1,0 +1,3 @@
+# Do not fill this template manually. Run `make age-key` to create
+# sops_age_key.txt, then make a cold offline backup before greenfield bootstrap.
+AGE-SECRET-KEY-REPLACE-WITH-MAKE-AGE-KEY
