@@ -25,16 +25,23 @@ need "apps/doco-cd/README.md"
 need "apps/doco-cd/compose.yaml"
 need "apps/doco-cd/poll-config.yaml"
 need "apps/doco-cd/secrets/README.md"
-need "apps/arcane/compose.yaml"
 need "apps/arcane/secrets/README.md"
 need "apps/traefik/compose.yaml"
-if [[ ! -f apps/arcane/secrets/encryption_key.enc.txt ]]; then
-  need "apps/arcane/secrets/.gitkeep"
-  ok "arcane secrets pending encryption (.gitkeep present)"
+# Arcane may be temporarily disabled (no compose.yaml) so doco-cd auto-discovery skips it.
+if [[ -f apps/arcane/compose.yaml ]]; then
+  need "apps/arcane/compose.yaml"
+  if [[ ! -f apps/arcane/secrets/encryption_key.enc.txt ]]; then
+    need "apps/arcane/secrets/.gitkeep"
+    ok "arcane secrets pending encryption (.gitkeep present)"
+  else
+    need "apps/arcane/secrets/encryption_key.enc.txt"
+    need "apps/arcane/secrets/jwt_secret.enc.txt"
+    need "apps/arcane/secrets/database_url.enc.txt"
+  fi
+elif [[ -f apps/arcane/compose.yaml.disabled ]]; then
+  ok "arcane temporarily disabled (compose.yaml.disabled)"
 else
-  need "apps/arcane/secrets/encryption_key.enc.txt"
-  need "apps/arcane/secrets/jwt_secret.enc.txt"
-  need "apps/arcane/secrets/database_url.enc.txt"
+  fail "apps/arcane needs compose.yaml or compose.yaml.disabled"
 fi
 need "docs/security-policy.md"
 need "docs/apps.md"
