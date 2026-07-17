@@ -48,6 +48,39 @@
   changed_when: true
   no_log: true
 
+- name: Check staged Git access token ciphertext
+  ansible.builtin.command:
+    argv:
+      - git
+      - diff
+      - --cached
+      - --quiet
+      - --
+      - bootstrap/ansible/secrets/git_access_token.sops.yml
+  args:
+    chdir: "{{ playbook_dir }}/../../.."
+  register: staged_git_access_token_commit
+  when: staged_git_access_token.stat.exists
+  changed_when: false
+  failed_when: staged_git_access_token_commit.rc not in [0, 1]
+
+- name: Commit Git access token ciphertext
+  ansible.builtin.command:
+    argv:
+      - git
+      - commit
+      - -m
+      - "chore: retain encrypted Git access token"
+      - --only
+      - --
+      - bootstrap/ansible/secrets/git_access_token.sops.yml
+  args:
+    chdir: "{{ playbook_dir }}/../../.."
+  when: >-
+    staged_git_access_token.stat.exists and
+    staged_git_access_token_commit.rc == 1
+  changed_when: true
+
 - name: Delete bootstrap-window plaintext
   ansible.builtin.file:
     path: "{{ playbook_dir }}/../../../{{ item }}"

@@ -110,6 +110,34 @@ if (
     or encrypt.get("no_log") is not True
 ):
     fail("cleanup must SOPS-encrypt the Git token into bootstrap/ansible/secrets")
+
+ciphertext_path = "bootstrap/ansible/secrets/git_access_token.sops.yml"
+stage_ciphertext = task_named(cleanup_tasks, "Stage Git access token ciphertext")
+check_commit = task_named(cleanup_tasks, "Check staged Git access token ciphertext")
+commit_ciphertext = task_named(cleanup_tasks, "Commit Git access token ciphertext")
+check_argv = check_commit.get("ansible.builtin.command", {}).get("argv", [])
+commit_argv = commit_ciphertext.get("ansible.builtin.command", {}).get("argv", [])
+if not all(argument in check_argv for argument in ("diff", "--cached", "--quiet", ciphertext_path)):
+    fail("cleanup must check whether the intended ciphertext path needs committing")
+if (
+    check_commit.get("changed_when") is not False
+    or "rc not in [0, 1]" not in str(check_commit.get("failed_when"))
+):
+    fail("ciphertext commit check must treat clean and changed states idempotently")
+if not all(argument in commit_argv for argument in ("commit", "--only", ciphertext_path)):
+    fail("cleanup must commit only the intended Git token ciphertext path")
+if "-m" not in commit_argv or "rc == 1" not in str(commit_ciphertext.get("when")):
+    fail("cleanup must commit changed ciphertext and skip already-clean runs")
+
+task_names = [task.get("name") for task in cleanup_tasks]
+if not (
+    task_names.index(stage_ciphertext.get("name"))
+    < task_names.index(check_commit.get("name"))
+    < task_names.index(commit_ciphertext.get("name"))
+    < task_names.index("Delete bootstrap-window plaintext")
+):
+    fail("ciphertext must be staged and committed before plaintext deletion")
+
 variables = load(ANSIBLE / "group_vars" / "all.yml")
 if "git_access_token.txt" not in variables.get("doco_cd_git_token_file", ""):
     fail("Git token plaintext source must be the gitignored root file")
