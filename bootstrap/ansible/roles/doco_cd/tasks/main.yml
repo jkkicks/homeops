@@ -89,20 +89,23 @@
   when: doco_cd_secret_inspect.results[1].rc != 0
   no_log: true
 
-- name: Inspect doco-cd stacks
-  community.docker.docker_stack_info:
-  register: doco_cd_stack_info
+- name: List Swarm stacks
+  ansible.builtin.command:
+    argv:
+      - docker
+      - stack
+      - ls
+      - --format
+      - "{{ '{{.Name}}' }}"
+  register: doco_cd_stack_ls
+  changed_when: false
 
 - name: Stage canonical doco-cd application files
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/../../../apps/doco-cd/"
     dest: /opt/doco-cd/
     mode: preserve
-  when: >-
-    doco_cd_stack_info.results
-    | selectattr('name', 'equalto', 'doco-cd')
-    | list
-    | length == 0
+  when: "'doco-cd' not in doco_cd_stack_ls.stdout_lines"
 
 - name: Deploy missing doco-cd stack
   community.docker.docker_stack:
@@ -110,8 +113,4 @@
     state: present
     compose:
       - /opt/doco-cd/compose.yaml
-  when: >-
-    doco_cd_stack_info.results
-    | selectattr('name', 'equalto', 'doco-cd')
-    | list
-    | length == 0
+  when: "'doco-cd' not in doco_cd_stack_ls.stdout_lines"

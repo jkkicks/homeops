@@ -1,5 +1,5 @@
 creation_rules:
   - path_regex: .*\.(enc\.)?(yaml|yml|env|txt)$
     encrypted_regex: ".*"
-    # Replace with the real public key from age.pubkey after bootstrap
-    age: age1jm4mdhtmdfvade0djwk9tttef4v22yeaeqyyed4c7lac7sfzrypq5z8n59
+    # Environment age public key (matches age.pubkey)
+    age: age10grvhsxrr2gdsd56ad0kcgxr0qh6vgnm0ewks8cyteufqsjeaczqazs6ls

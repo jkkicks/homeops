@@ -41,8 +41,10 @@ Run `make lint` before executing a playbook. Then use:
 
 The lockdown plays connect to each `new_nodes` host through its current
 `ansible_host`, create the permanent `bootstrap_user_name`, enroll Netbird,
-prove OpenSSH and Ansible connectivity at the discovered Netbird address, and
-only then enable UFW without a public SSH allowance.
+`ssh-keyscan` the mesh IP into the operator `known_hosts` (and use
+`StrictHostKeyChecking=accept-new` for the cutover), prove OpenSSH and Ansible
+connectivity at the discovered Netbird address, and only then enable UFW
+without a public SSH allowance.
 
 Ansible cannot persist changes to the YAML inventory. Immediately after each
 successful host cutover:

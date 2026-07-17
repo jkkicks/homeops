@@ -163,7 +163,7 @@ Research: [research/ubuntu-hardening-baseline.md](research/ubuntu-hardening-base
 
 1. Prep: inventory + staged secrets + `make age-key` + backup confirm + commit `age.pubkey` / `.sops.yaml`.
 2. Lockdown on all `new_nodes` (§5), with **serial: 1** for managers when applying network/Docker restarts.
-3. Docker CE (official apt), **pinned** in `group_vars`; configure conservative `daemon.json` (log rotation, no unauthenticated remote TCP API, live-restore, etc.). Prefer `geerlingguy.docker` (or equivalent) + thin local policy role if pins work.
+3. Docker CE (official apt), **pinned** in `group_vars`; configure conservative `daemon.json` (log rotation, no unauthenticated remote TCP API; do **not** enable `live-restore` — incompatible with Swarm). Prefer `geerlingguy.docker` (or equivalent) + thin local policy role if pins work.
 4. Swarm: first `managers` host inits with Netbird advertise/data-path; others join via runtime tokens (`community.docker` preferred). Fail if a host is already in a **different** Swarm.
 5. doco-cd: create Docker secrets; deploy from **`apps/doco-cd/compose.yaml`** only (no duplicate compose in the role).
 6. Run completion contract (§11).
@@ -215,7 +215,7 @@ Aligned with current Docker Engine **29.6.1** / containerd **2.2.5** (operator D
 | `docker-buildx-plugin` | `0.35.0-1~ubuntu.24.04~noble` |
 | `docker-compose-plugin` | `5.3.1-1~ubuntu.24.04~noble` |
 
-Put these exact strings in `bootstrap/ansible/group_vars/all.yml` at implement time. `requirements.yml` pins Ansible collections/roles to exact versions after first successful test.
+Put these exact strings in `bootstrap/ansible/inventory/group_vars/all.yml` at implement time. `requirements.yml` pins Ansible collections/roles to exact versions after first successful test.
 
 ---
 
@@ -231,7 +231,7 @@ bootstrap/
     ansible.cfg
     requirements.yml          # pin collections/roles (e.g. community.docker, optional geerlingguy.docker)
     inventory/hosts.yml
-    group_vars/all.yml
+    inventory/group_vars/all.yml
     secrets/                  # committed SOPS ciphertext only (e.g. git_access_token)
     playbooks/
       greenfield.yml

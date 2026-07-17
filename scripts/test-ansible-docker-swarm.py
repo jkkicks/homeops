@@ -27,7 +27,7 @@ def task_named(tasks: list[dict], name: str) -> dict:
     return next((task for task in (tasks or []) if task.get("name") == name), {})
 
 
-variables = load("group_vars/all.yml")
+variables = load("inventory/group_vars/all.yml")
 expected_packages = {
     "docker-ce": "5:29.6.1-1~ubuntu.24.04~noble",
     "docker-ce-cli": "5:29.6.1-1~ubuntu.24.04~noble",
@@ -60,11 +60,18 @@ if "ansible.builtin.apt" not in install:
 if "item.version" not in str(install["ansible.builtin.apt"].get("name")):
     fail("docker role must consume docker_packages versions verbatim")
 
+sdk = task_named(docker_tasks, "Install community.docker Python dependencies")
+sdk_pkgs = sdk.get("ansible.builtin.apt", {}).get("name")
+if not isinstance(sdk_pkgs, list) or "python3-docker" not in sdk_pkgs or "python3-jsondiff" not in sdk_pkgs:
+    fail("docker role must install python3-docker and python3-jsondiff")
+
 daemon = task_named(docker_tasks, "Configure conservative Docker daemon policy")
 daemon_config = daemon.get("ansible.builtin.copy", {}).get("content", "")
-for setting in ("live-restore", "log-driver", "max-size", "max-file"):
+for setting in ("log-driver", "max-size", "max-file"):
     if setting not in daemon_config:
         fail(f"daemon.json policy is missing {setting}")
+if "live-restore" in daemon_config:
+    fail("daemon.json must not enable live-restore (incompatible with Swarm)")
 if '"hosts"' in daemon_config or "tcp://" in daemon_config:
     fail("daemon.json must not configure a remote TCP API")
 if "Restart Docker" not in str(daemon.get("notify")):

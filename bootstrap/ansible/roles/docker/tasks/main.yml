@@ -63,15 +63,24 @@
   loop_control:
     label: "{{ item.name }}"
 
+# community.docker modules import these on the managed host's Python interpreter
+# (docker SDK for swarm/secret; jsondiff for docker_stack).
+- name: Install community.docker Python dependencies
+  ansible.builtin.apt:
+    name:
+      - python3-docker
+      - python3-jsondiff
+    state: present
+
 - name: Configure conservative Docker daemon policy
   ansible.builtin.copy:
     dest: /etc/docker/daemon.json
     owner: root
     group: root
     mode: "0644"
+    # live-restore is intentionally omitted: Docker rejects Swarm init when it is enabled.
     content: |
       {
-        "live-restore": true,
         "log-driver": "json-file",
         "log-opts": {
           "max-file": "3",

@@ -68,17 +68,23 @@ for task_name, secret_name in (
     if ".rc != 0" not in str(task.get("when")):
         fail(f"{task_name} must leave an existing Docker secret untouched")
 
+stack_ls = task_named(role_tasks, "List Swarm stacks")
+if "stack" not in str(stack_ls.get("ansible.builtin.command", {})):
+    fail("doco_cd must list stacks with docker stack ls before deploy decisions")
+
 stage = task_named(role_tasks, "Stage canonical doco-cd application files")
 stage_text = str(stage.get("ansible.builtin.copy", {}))
-if "apps/doco-cd" not in stage_text or "when" not in stage:
+if "apps/doco-cd" not in stage_text:
     fail("doco_cd must stage apps/doco-cd only while restoring an absent stack")
+if "doco-cd' not in doco_cd_stack_ls.stdout_lines" not in str(stage.get("when")):
+    fail("doco_cd staging must skip when the doco-cd stack already exists")
 
 deploy = task_named(role_tasks, "Deploy missing doco-cd stack")
 deploy_args = deploy.get("community.docker.docker_stack", {})
 if (
     deploy_args.get("name") != "doco-cd"
     or "compose.yaml" not in str(deploy_args.get("compose"))
-    or "when" not in deploy
+    or "doco-cd' not in doco_cd_stack_ls.stdout_lines" not in str(deploy.get("when"))
 ):
     fail("doco_cd must deploy the canonical compose only when the stack is absent")
 
@@ -155,7 +161,7 @@ if not (
 ):
     fail("ciphertext must be staged and committed before plaintext deletion")
 
-variables = load(ANSIBLE / "group_vars" / "all.yml")
+variables = load(ANSIBLE / "inventory" / "group_vars" / "all.yml")
 if "git_access_token.txt" not in variables.get("doco_cd_git_token_file", ""):
     fail("Git token plaintext source must be the gitignored root file")
 if "secrets/git_access_token.sops.yml" not in variables.get(

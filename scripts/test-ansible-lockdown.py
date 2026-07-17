@@ -38,7 +38,7 @@ def task_named(tasks: list[dict], name: str) -> dict:
     return next((task for task in tasks if task.get("name") == name), {})
 
 
-variables = load("group_vars/all.yml")
+variables = load("inventory/group_vars/all.yml")
 for variable in (
     "bootstrap_user_name",
     "bootstrap_ssh_public_keys_dir",
@@ -77,10 +77,20 @@ if enroll.get("no_log") is not True:
     fail("Netbird enrollment must use no_log")
 if "netbird_status.rc != 0" not in str(enroll.get("when")):
     fail("Netbird enrollment must skip connected peers")
-if task_module(task_named(netbird_tasks, "Switch Ansible to Netbird SSH")) != (
-    "ansible.builtin.set_fact"
+if task_module(task_named(netbird_tasks, "Fetch Netbird host keys for the operator machine")) != (
+    "ansible.builtin.command"
 ):
+    fail("netbird must ssh-keyscan the mesh IP for the operator known_hosts")
+if task_module(task_named(netbird_tasks, "Trust Netbird host keys on the operator machine")) != (
+    "ansible.builtin.known_hosts"
+):
+    fail("netbird must install mesh host keys into the operator known_hosts")
+switch = task_named(netbird_tasks, "Switch Ansible to Netbird SSH")
+if task_module(switch) != "ansible.builtin.set_fact":
     fail("netbird must switch ansible_host after mesh SSH proof")
+switch_args = str(switch.get("ansible.builtin.set_fact", switch))
+if "accept-new" not in switch_args:
+    fail("netbird cutover must use StrictHostKeyChecking=accept-new")
 
 ufw_tasks = load("roles/ufw/tasks/main.yml")
 ufw_rules = [

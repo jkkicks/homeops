@@ -170,17 +170,21 @@
     that:
       - "'Status: active' in verify_ufw.stdout"
       - "'Default: deny (incoming)' in verify_ufw.stdout"
-      - verify_ufw.stdout is search('(?m)^22/tcp\\s+ALLOW IN\\s+Anywhere') == false
-      - verify_ufw.stdout is search('(?m)^2377/tcp\\s+ALLOW IN\\s+Anywhere') == false
-      - verify_ufw.stdout is search('(?m)^7946/(tcp|udp)\\s+ALLOW IN\\s+Anywhere') == false
-      - verify_ufw.stdout is search('(?m)^4789/udp\\s+ALLOW IN\\s+Anywhere') == false
-      - verify_ufw.stdout is search('(?m)^80/tcp\\s+ALLOW IN\\s+Anywhere')
-      - verify_ufw.stdout is search('(?m)^443/tcp\\s+ALLOW IN\\s+Anywhere')
-      - verify_ufw.stdout is search('(?m)^Anywhere on wt0\\s+ALLOW IN')
+      - not (verify_ufw.stdout is search('(?m)^22/tcp\\s+ALLOW IN\\s+Anywhere'))
+      - not (verify_ufw.stdout is search('(?m)^2377/tcp\\s+ALLOW IN\\s+Anywhere'))
+      - not (verify_ufw.stdout is search('(?m)^7946/(tcp|udp)\\s+ALLOW IN\\s+Anywhere'))
+      - not (verify_ufw.stdout is search('(?m)^4789/udp\\s+ALLOW IN\\s+Anywhere'))
+      - verify_ufw.stdout is search('(?m)^80/tcp(\\s|\\s+\\(v6\\))\\s+ALLOW IN')
+      - verify_ufw.stdout is search('(?m)^443/tcp(\\s|\\s+\\(v6\\))\\s+ALLOW IN')
+      - verify_ufw.stdout is search('(?m)^Anywhere( \\(v6\\))? on wt0\\s+ALLOW IN')
+      # Allow IPv4 + IPv6 twins of the same surface (80/443/wt0 only).
       - >-
         verify_ufw.stdout_lines
         | select('search', 'ALLOW IN')
-        | reject('search', '^(80/tcp|443/tcp|Anywhere on wt0)')
+        | reject(
+          'search',
+          '^(80/tcp|443/tcp|Anywhere( \\(v6\\))? on wt0)'
+        )
         | list
         | length == 0
     fail_msg: >-
@@ -309,9 +313,25 @@
       - docker
       - service
       - inspect
-      - --status
       - doco-cd_doco-cd
   register: verify_doco_cd_service
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: inventory_hostname == groups["managers"][0]
+
+# docker service inspect has no --status flag; replica health comes from ls.
+- name: Inspect doco-cd replica status
+  ansible.builtin.command:
+    argv:
+      - docker
+      - service
+      - ls
+      - --filter
+      - name=doco-cd_doco-cd
+      - --format
+      - "{{ '{{.Replicas}}' }}"
+  register: verify_doco_cd_replicas
   changed_when: false
   failed_when: false
   check_mode: false
@@ -343,11 +363,11 @@
       - >-
         (verify_doco_cd_service.stdout | from_json)[0]
         ["Spec"]["Mode"]["Replicated"]["Replicas"] | int > 0
+      - verify_doco_cd_replicas.rc == 0
+      - verify_doco_cd_replicas.stdout | trim is match('^[1-9][0-9]*/[1-9][0-9]*$')
       - >-
-        (verify_doco_cd_service.stdout | from_json)[0]
-        ["ServiceStatus"]["RunningTasks"] | int ==
-        (verify_doco_cd_service.stdout | from_json)[0]
-        ["Spec"]["Mode"]["Replicated"]["Replicas"] | int
+        (verify_doco_cd_replicas.stdout | trim | split('/'))[0] | int
+        == (verify_doco_cd_replicas.stdout | trim | split('/'))[1] | int
       - verify_doco_cd_logs.rc == 0
       - >-
         (verify_doco_cd_logs.stdout + "\n" + verify_doco_cd_logs.stderr)

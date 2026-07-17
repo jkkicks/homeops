@@ -115,9 +115,36 @@
   delegate_to: localhost
   become: false
 
+# Cutover uses a new IP the operator has never SSHed to. Use plain (unhashed)
+# keyscan lines so known_hosts name matches; skip ssh-keyscan comment lines.
+# accept-new still covers first-seen keys; a changed key still fails.
+- name: Fetch Netbird host keys for the operator machine
+  ansible.builtin.command:
+    cmd: ssh-keyscan -T 5 {{ netbird_ip }}
+  register: netbird_operator_host_keys
+  changed_when: false
+  failed_when: >-
+    netbird_operator_host_keys.rc != 0
+    or (netbird_operator_host_keys.stdout_lines | reject('match', '^\\s*#') | list | length) == 0
+  delegate_to: localhost
+  become: false
+
+- name: Trust Netbird host keys on the operator machine
+  ansible.builtin.known_hosts:
+    path: "{{ lookup('env', 'HOME') }}/.ssh/known_hosts"
+    name: "{{ netbird_ip }}"
+    key: "{{ item }}"
+    state: present
+  loop: "{{ netbird_operator_host_keys.stdout_lines | reject('match', '^\\s*#') | list }}"
+  loop_control:
+    label: "{{ item.split()[1] | default('host-key') }}"
+  delegate_to: localhost
+  become: false
+
 - name: Switch Ansible to Netbird SSH
   ansible.builtin.set_fact:
     ansible_host: "{{ netbird_ip }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=accept-new"
 
 - name: Reset SSH connection for Netbird
   ansible.builtin.meta: reset_connection

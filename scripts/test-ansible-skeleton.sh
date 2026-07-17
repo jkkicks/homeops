@@ -20,7 +20,7 @@ for path in \
   bootstrap/ansible/ansible.cfg \
   bootstrap/ansible/requirements.yml \
   bootstrap/ansible/inventory/hosts.yml \
-  bootstrap/ansible/group_vars/all.yml \
+  bootstrap/ansible/inventory/group_vars/all.yml \
   bootstrap/ansible/secrets/README.md \
   bootstrap/ansible/playbooks/greenfield.yml \
   bootstrap/ansible/playbooks/join.yml \
@@ -44,11 +44,11 @@ for target in age-key greenfield join verify lint; do
   grep -Eq "^${target}:" Makefile || fail "Makefile is missing target: $target"
 done
 
-need_text bootstrap/ansible/group_vars/all.yml 'timezone: UTC'
-need_text bootstrap/ansible/group_vars/all.yml '5:29.6.1-1~ubuntu.24.04~noble'
-need_text bootstrap/ansible/group_vars/all.yml '2.2.5-1~ubuntu.24.04~noble'
-need_text bootstrap/ansible/group_vars/all.yml '0.35.0-1~ubuntu.24.04~noble'
-need_text bootstrap/ansible/group_vars/all.yml '5.3.1-1~ubuntu.24.04~noble'
+need_text bootstrap/ansible/inventory/group_vars/all.yml 'timezone: UTC'
+need_text bootstrap/ansible/inventory/group_vars/all.yml '5:29.6.1-1~ubuntu.24.04~noble'
+need_text bootstrap/ansible/inventory/group_vars/all.yml '2.2.5-1~ubuntu.24.04~noble'
+need_text bootstrap/ansible/inventory/group_vars/all.yml '0.35.0-1~ubuntu.24.04~noble'
+need_text bootstrap/ansible/inventory/group_vars/all.yml '5.3.1-1~ubuntu.24.04~noble'
 
 for group in managers workers new_nodes; do
   need_text bootstrap/ansible/inventory/hosts.yml "${group}:"
